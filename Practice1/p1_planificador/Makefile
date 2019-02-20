@@ -3,8 +3,8 @@
 CC	= gcc
 LD	= gcc
 
-CFLAGS	= -g -Wall 
-CFLAGS	+= -I. 
+CFLAGS	= -g -Wall
+CFLAGS	+= -I.
 LDFLAGS	= libinterrupt.a
 HEADERS = mythread.h queue.h
 
@@ -32,4 +32,3 @@ $(PRGS): % : %.o
 
 clean:
 	-rm -f *.o *.a *~ $(PRGS)
-
