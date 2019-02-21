@@ -191,11 +191,9 @@ void timer_interrupt(int sig)
 {
     disable_interrupt ();
     running->ticks--;
-    printf("TICKS %d\n", running->ticks);
     if (running->ticks<=0){
         running->ticks = QUANTUM_TICKS;
         running->state = INIT;
-        printf("*** TICKS FINISHED. STORING THREAD %d IN QUEUE\n", running->tid);
         enqueue (q , running);
         TCB* next = scheduler();
         if (next != running) {
