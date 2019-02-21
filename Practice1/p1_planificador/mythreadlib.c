@@ -111,10 +111,21 @@ int mythread_create (void (*fun_addr)(),int priority)
 
   printf("*** THREAD %d READY\n", t_state[i].tid);
 
-  // Take the element from the TCB table
-  TCB * t = & t_state [i];
-  // insert a TCB into the queue
-  enqueue (q , t);
+  disable_interrupt ();
+  if (running != &t_state[i] && mythread_getpriority()==LOW_PRIORITY && priority==HIGH_PRIORITY) {
+      TCB* aux = running;
+      printf("*** THREAD %d PREEMTED : SETCONTEXT OF %d\n", running->tid, t_state[i].tid);
+      running = &t_state[i];
+      current = running->tid;
+      swapcontext (&(aux->run_env), &(running->run_env));
+  } else {
+      printf("hhh THREAD %d ARRIVED : CURRENTLY RUNNING %d SO QUEUEING IT\n", t_state[i].tid,  running->tid);
+      // Take the element from the TCB table
+      TCB * t = & t_state [i];
+      // insert a TCB into the queue
+      enqueue (q , t);
+  }
+  enable_interrupt ();
   return i;
 } /****** End my_thread_create() ******/
 
@@ -149,7 +160,7 @@ void mythread_setpriority(int priority) {
 }
 
 /* Returns the priority of the calling thread */
-int mythread_getpriority(int priority) {
+int mythread_getpriority() {
   int tid = mythread_gettid();
   return t_state[tid].priority;
 }
@@ -164,20 +175,21 @@ int mythread_gettid(){
 
 /* FIFO para alta prioridad, RR para baja*/
 TCB* scheduler(){
-  // int i;
-  // for(i=0; i<N; i++){
-  //   if (t_state[i].state == INIT) {
-  //       current = i;
-	//     return &t_state[i];
-  //   }
-  // }
+  int i;
+  for(i=0; i<N; i++){
+    if (t_state[i].state == INIT && t_state[i].priority == HIGH_PRIORITY) {
+        current = i;
+        printf("hhh NEXT THREAD %d PRIORITY HIGH\n", t_state[i].tid);
+	    return &t_state[i];
+    }
+  }
   if (!queue_empty(q)) {
       TCB * candidate = dequeue ( q ) ;
       while (candidate->state != INIT) {
           enqueue (q , candidate);
           candidate = dequeue ( q ) ;
       }
-
+      printf("hhh NEXT THREAD %d PRIORITY LOW\n", candidate->tid);
       return candidate;
   }
   printf("mythread_free: No thread in the system\nExiting...\n");
@@ -189,21 +201,24 @@ TCB* scheduler(){
 /* Timer interrupt  */
 void timer_interrupt(int sig)
 {
+
     disable_interrupt ();
-    running->ticks--;
-    printf("TICKS %d\n", running->ticks);
-    if (running->ticks<=0){
-        running->ticks = QUANTUM_TICKS;
-        running->state = INIT;
-        printf("*** TICKS FINISHED. STORING THREAD %d IN QUEUE\n", running->tid);
-        enqueue (q , running);
-        TCB* next = scheduler();
-        if (next != running) {
-            TCB* aux = running;
-            printf("*** SWAPCONTEXT FROM %d TO %d\n", running->tid, next->tid);
-            running = next;
-            current = running->tid;
-            swapcontext (&(aux->run_env), &(running->run_env));
+    if (mythread_getpriority() == LOW_PRIORITY) {
+        running->ticks--;
+        printf("hhh THREAD %d - TICKS %d\n", running->tid, running->ticks);
+        if (running->ticks<=0){
+            running->ticks = QUANTUM_TICKS;
+            running->state = INIT;
+            printf("hhh TICKS FINISHED. STORING THREAD %d IN QUEUE\n", running->tid);
+            enqueue (q , running);
+            TCB* next = scheduler();
+            if (next != running) {
+                TCB* aux = running;
+                printf("*** SWAPCONTEXT FROM %d TO %d\n", running->tid, next->tid);
+                running = next;
+                current = running->tid;
+                swapcontext (&(aux->run_env), &(running->run_env));
+            }
         }
     }
     enable_interrupt();
