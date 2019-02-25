@@ -25,6 +25,7 @@ static int current = 0;
 // Creates an empty queue
 static struct queue * q_low;
 static struct queue * q_high;
+static struct queue * q_waiting;
 
 /* Variable indicating if the library is initialized (init == 1) or not (init == 0) */
 static int init=0;
@@ -80,6 +81,7 @@ void init_mythreadlib() {
 
   q_low = queue_new();
   q_high = queue_new();
+  q_waiting = queue_new();
 }
 
 
@@ -142,12 +144,57 @@ int mythread_create (void (*fun_addr)(),int priority)
 /* Read disk syscall */
 int read_disk()
 {
-   return 1;
+    printf("*** THREAD %d READ FROM DISK\n", running->tid);
+    if (!data_in_page_cache()){
+        printf("hhh DATA IS NOT IN CACHE. CHANGING STATUS TO WAIT\n");
+        running->ticks = QUANTUM_TICKS;
+        running->state = WAITING;
+        enqueue (q_waiting , running);
+        TCB* next = scheduler();
+        TCB* aux = running;
+        running = next;
+        current = running->tid;
+        swapcontext (&(aux->run_env), &(running->run_env));
+    } else {
+        printf("hhh DATA IS IN CACHE. CONTINUE\n");
+    }
+    return 1;
 }
 
 /* Disk interrupt  */
 void disk_interrupt(int sig)
 {
+    disable_disk_interrupt ();
+
+    if (!queue_empty(q_waiting)) {
+        TCB * ready = dequeue ( q_waiting ) ;
+        printf("*** THREAD READY %d\n", ready->tid);
+        ready->state = INIT;
+        if (ready->priority==HIGH_PRIORITY){
+            if (mythread_gettid() != -1 && mythread_getpriority() == LOW_PRIORITY){
+                TCB* aux = running;
+                printf("*** THREAD %d PREEMTED : SETCONTEXT OF %d\n", running->tid, ready->tid);
+                running = ready;
+                current = running->tid;
+                aux->ticks = QUANTUM_TICKS;
+                enqueue (q_low , aux);
+                swapcontext (&(aux->run_env), &(running->run_env));
+            } else {
+                enqueue(q_high, ready);
+            }
+        } else {
+            enqueue(q_low, ready);
+        }
+        if(mythread_gettid() == -1){
+            TCB* next = scheduler();
+            TCB* aux = running;
+            printf("*** THREAD READY : SET CONTEXT TO %d\n", next->tid);
+            running = next;
+            current = running->tid;
+            swapcontext (&(aux->run_env), &(running->run_env));
+        }
+    }
+    enable_disk_interrupt ();
 }
 
 
@@ -209,10 +256,18 @@ TCB* scheduler(){
       enable_interrupt();
       return candidate;
   }
+
+  if (!queue_empty(q_waiting)) {
+      current = idle.tid;
+      return &idle;
+  }
+
   printf("mythread_free: No thread in the system\nExiting...\n");
   printf("*** FINISH\n");
+  free(idle.run_env.uc_stack.ss_sp);
   free(q_low);
   free(q_high);
+  free(q_waiting);
   exit(1);
 }
 
@@ -222,7 +277,7 @@ void timer_interrupt(int sig)
 {
 
     disable_interrupt ();
-    if (mythread_getpriority() == LOW_PRIORITY) {
+    if (mythread_gettid() != -1 && mythread_getpriority() == LOW_PRIORITY) {
         running->ticks--;
         printf("hhh THREAD %d - TICKS %d\n", running->tid, running->ticks);
         if (running->ticks<=0){
