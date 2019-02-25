@@ -182,6 +182,7 @@ TCB* scheduler(){
   }
   printf("mythread_free: No thread in the system\nExiting...\n");
   printf("*** FINISH\n");
+  free(q);
   exit(1);
 }
 

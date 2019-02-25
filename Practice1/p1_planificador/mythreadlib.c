@@ -23,7 +23,8 @@ static TCB* running;
 static int current = 0;
 
 // Creates an empty queue
-static struct queue * q;
+static struct queue * q_low;
+static struct queue * q_high;
 
 /* Variable indicating if the library is initialized (init == 1) or not (init == 0) */
 static int init=0;
@@ -77,7 +78,8 @@ void init_mythreadlib() {
   init_disk_interrupt();
   init_interrupt();
 
-  q = queue_new();
+  q_low = queue_new();
+  q_high = queue_new();
 }
 
 
@@ -117,14 +119,21 @@ int mythread_create (void (*fun_addr)(),int priority)
       printf("*** THREAD %d PREEMTED : SETCONTEXT OF %d\n", running->tid, t_state[i].tid);
       running = &t_state[i];
       current = running->tid;
-      enqueue (q , aux);
+      aux->ticks = QUANTUM_TICKS;
+      enqueue (q_low , aux);
       swapcontext (&(aux->run_env), &(running->run_env));
   } else if (priority==LOW_PRIORITY){
-      printf("hhh THREAD %d ARRIVED : CURRENTLY RUNNING %d SO QUEUEING IT\n", t_state[i].tid,  running->tid);
+      printf("hhh THREAD %d ARRIVED [LOW_PRIORITY]: CURRENTLY RUNNING %d SO QUEUEING IT\n", t_state[i].tid,  running->tid);
       // Take the element from the TCB table
       TCB * t = & t_state [i];
       // insert a TCB into the queue
-      enqueue (q , t);
+      enqueue (q_low , t);
+  } else if (priority==HIGH_PRIORITY){
+      printf("hhh THREAD %d ARRIVED [HIGH_PRIORITY] : CURRENTLY RUNNING %d SO QUEUEING IT\n", t_state[i].tid,  running->tid);
+      // Take the element from the TCB table
+      TCB * t = & t_state [i];
+      // insert a TCB into the queue
+      enqueue (q_high , t);
   }
   enable_interrupt ();
   return i;
@@ -177,20 +186,23 @@ int mythread_gettid(){
 /* FIFO para alta prioridad, RR para baja*/
 TCB* scheduler(){
     disable_interrupt ();
-  int i;
-  for(i=0; i<N; i++){
-    if (t_state[i].state == INIT && t_state[i].priority == HIGH_PRIORITY) {
-        current = i;
-        printf("hhh NEXT THREAD %d PRIORITY HIGH\n", t_state[i].tid);
-        enable_interrupt();
-	    return &t_state[i];
-    }
-  }
-  if (!queue_empty(q)) {
-      TCB * candidate = dequeue ( q ) ;
+  if (!queue_empty(q_high)) {
+      TCB * candidate = dequeue ( q_high ) ;
       while (candidate->state != INIT) {
-          enqueue (q , candidate);
-          candidate = dequeue ( q ) ;
+          enqueue (q_high , candidate);
+          candidate = dequeue ( q_high ) ;
+      }
+      current = candidate->tid;
+      printf("hhh NEXT THREAD %d PRIORITY HIGH\n", candidate->tid);
+      enable_interrupt();
+      return candidate;
+  }
+
+  if (!queue_empty(q_low)) {
+      TCB * candidate = dequeue ( q_low ) ;
+      while (candidate->state != INIT) {
+          enqueue (q_low , candidate);
+          candidate = dequeue ( q_low ) ;
       }
       current = candidate->tid;
       printf("hhh NEXT THREAD %d PRIORITY LOW\n", candidate->tid);
@@ -199,6 +211,8 @@ TCB* scheduler(){
   }
   printf("mythread_free: No thread in the system\nExiting...\n");
   printf("*** FINISH\n");
+  free(q_low);
+  free(q_high);
   exit(1);
 }
 
@@ -215,7 +229,7 @@ void timer_interrupt(int sig)
             running->ticks = QUANTUM_TICKS;
             running->state = INIT;
             printf("hhh TICKS FINISHED. STORING THREAD %d IN QUEUE\n", running->tid);
-            enqueue (q , running);
+            enqueue (q_low , running);
             TCB* next = scheduler();
             if (next != running) {
                 TCB* aux = running;
