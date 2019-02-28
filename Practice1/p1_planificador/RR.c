@@ -71,12 +71,19 @@ void init_mythreadlib() {
   t_state[0].tid = 0;
 
   running = &t_state[0];
+
+  /*
+    First thread that runs after idle. Print the message
+  */
   printf("*** THREAD READY : SET CONTEXT TO %d\n", running->tid);
 
   /* Initialize disk and clock interrupts */
   init_disk_interrupt();
   init_interrupt();
 
+  /*
+    Initialize our queue
+  */
   q = queue_new();
 }
 
@@ -108,12 +115,11 @@ int mythread_create (void (*fun_addr)(),int priority)
   t_state[i].run_env.uc_stack.ss_flags = 0;
   makecontext(&t_state[i].run_env, fun_addr, 1);
 
-
   printf("*** THREAD %d READY\n", t_state[i].tid);
 
   // Take the element from the TCB table
   TCB * t = & t_state [i];
-  // insert a TCB into the queue
+  // insert the thread into the queue of ready's
   enqueue (q , t);
   return i;
 } /****** End my_thread_create() ******/
@@ -138,6 +144,9 @@ void mythread_exit() {
   t_state[tid].state = FREE;
   free(t_state[tid].run_env.uc_stack.ss_sp);
 
+  /*
+    Find the next thread in the scheduler and activate it
+  */
   TCB* next = scheduler();
   activator(next);
 }
@@ -164,23 +173,14 @@ int mythread_gettid(){
 
 /* FIFO para alta prioridad, RR para baja*/
 TCB* scheduler(){
-  // int i;
-  // for(i=0; i<N; i++){
-  //   if (t_state[i].state == INIT) {
-  //       current = i;
-	//     return &t_state[i];
-  //   }
-  // }
+  /*
+    We extract the first element of the queue. We do not need to check that it is in INIT,
+    because being in the queue implies that the thread is ready to continue execution.
+  */
   if (!queue_empty(q)) {
       TCB * candidate = dequeue ( q ) ;
-      while (candidate->state != INIT) {
-          enqueue (q , candidate);
-          candidate = dequeue ( q ) ;
-      }
-
       return candidate;
   }
-  printf("mythread_free: No thread in the system\nExiting...\n");
   printf("*** FINISH\n");
   free(q);
   exit(1);
@@ -190,14 +190,29 @@ TCB* scheduler(){
 /* Timer interrupt  */
 void timer_interrupt(int sig)
 {
+    /*
+        We disable the interrupts to perform an atomic action
+    */
     disable_interrupt ();
     running->ticks--;
+    /*
+        If the number of ticks is zero, we need to swap to the next thread (Round Robin)
+    */
     if (running->ticks<=0){
         running->ticks = QUANTUM_TICKS;
         running->state = INIT;
+        /*
+            We will enqueue the current thread and find the next one with the scheduler
+        */
         enqueue (q , running);
         TCB* next = scheduler();
+        /*
+            If the current and next thread are the same, we do not need to swap
+        */
         if (next != running) {
+            /*
+                We update the 'running' and 'current' variables, and set the context to the next thread
+            */
             TCB* aux = running;
             printf("*** SWAPCONTEXT FROM %d TO %d\n", running->tid, next->tid);
             running = next;
@@ -210,6 +225,9 @@ void timer_interrupt(int sig)
 
 /* Activator */
 void activator(TCB* next){
+    /*
+        We update the 'running' and 'current' variables, and set the context to the next thread
+    */
     TCB * aux = running;
     running = next;
     current = running->tid;

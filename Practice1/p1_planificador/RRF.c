@@ -22,7 +22,7 @@ static TCB t_state[N];
 static TCB* running;
 static int current = 0;
 
-// Creates an empty queue
+// Creates two empty queues, for the 2 different priorities
 static struct queue * q_low;
 static struct queue * q_high;
 
@@ -72,12 +72,19 @@ void init_mythreadlib() {
   t_state[0].tid = 0;
 
   running = &t_state[0];
+
+  /*
+    First thread that runs after idle. Print the message
+  */
   printf("*** THREAD READY : SET CONTEXT TO %d\n", running->tid);
 
   /* Initialize disk and clock interrupts */
   init_disk_interrupt();
   init_interrupt();
 
+  /*
+    Initialize our queues for low and high priorities
+  */
   q_low = queue_new();
   q_high = queue_new();
 }
@@ -113,8 +120,15 @@ int mythread_create (void (*fun_addr)(),int priority)
 
   printf("*** THREAD %d READY\n", t_state[i].tid);
 
+  /*
+      We disable the interrupts to perform an atomic action
+  */
   disable_interrupt ();
-  if (running != &t_state[i] && mythread_getpriority()==LOW_PRIORITY && priority==HIGH_PRIORITY) {
+  /*
+      If the current thread has low priority and the new one has high,
+      we should preempt the former.
+  */
+  if (mythread_getpriority()==LOW_PRIORITY && priority==HIGH_PRIORITY) {
       TCB* aux = running;
       printf("*** THREAD %d PREEMTED : SETCONTEXT OF %d\n", running->tid, t_state[i].tid);
       running = &t_state[i];
@@ -122,17 +136,15 @@ int mythread_create (void (*fun_addr)(),int priority)
       aux->ticks = QUANTUM_TICKS;
       enqueue (q_low , aux);
       swapcontext (&(aux->run_env), &(running->run_env));
+  /*
+      Otherwise, we enqueue the new thread in its corresponding queue,
+      according to its priority.
+  */
   } else if (priority==LOW_PRIORITY){
-      printf("hhh THREAD %d ARRIVED [LOW_PRIORITY]: CURRENTLY RUNNING %d SO QUEUEING IT\n", t_state[i].tid,  running->tid);
-      // Take the element from the TCB table
       TCB * t = & t_state [i];
-      // insert a TCB into the queue
       enqueue (q_low , t);
   } else if (priority==HIGH_PRIORITY){
-      printf("hhh THREAD %d ARRIVED [HIGH_PRIORITY] : CURRENTLY RUNNING %d SO QUEUEING IT\n", t_state[i].tid,  running->tid);
-      // Take the element from the TCB table
       TCB * t = & t_state [i];
-      // insert a TCB into the queue
       enqueue (q_high , t);
   }
   enable_interrupt ();
@@ -159,6 +171,9 @@ void mythread_exit() {
   t_state[tid].state = FREE;
   free(t_state[tid].run_env.uc_stack.ss_sp);
 
+  /*
+    Find the next thread in the scheduler and activate it
+  */
   TCB* next = scheduler();
   activator(next);
 }
@@ -185,31 +200,32 @@ int mythread_gettid(){
 
 /* FIFO para alta prioridad, RR para baja*/
 TCB* scheduler(){
-    disable_interrupt ();
+
+  disable_interrupt ();
+  /*
+    We first check if there are elements in the high priority,
+    queue, as they are more important
+    We do not need to check that it is in INIT, because being in
+    the queue implies that the thread is ready to continue execution.
+  */
   if (!queue_empty(q_high)) {
       TCB * candidate = dequeue ( q_high ) ;
-      while (candidate->state != INIT) {
-          enqueue (q_high , candidate);
-          candidate = dequeue ( q_high ) ;
-      }
       current = candidate->tid;
-      printf("hhh NEXT THREAD %d PRIORITY HIGH\n", candidate->tid);
       enable_interrupt();
       return candidate;
   }
 
+  /*
+     Otherwise, we move to the low priority queue
+     We do not need to check that it is in INIT, because being in
+     the queue implies that the thread is ready to continue execution.
+  */
   if (!queue_empty(q_low)) {
       TCB * candidate = dequeue ( q_low ) ;
-      while (candidate->state != INIT) {
-          enqueue (q_low , candidate);
-          candidate = dequeue ( q_low ) ;
-      }
       current = candidate->tid;
-      printf("hhh NEXT THREAD %d PRIORITY LOW\n", candidate->tid);
       enable_interrupt();
       return candidate;
   }
-  printf("mythread_free: No thread in the system\nExiting...\n");
   printf("*** FINISH\n");
   free(q_low);
   free(q_high);
@@ -220,18 +236,33 @@ TCB* scheduler(){
 /* Timer interrupt  */
 void timer_interrupt(int sig)
 {
-
+    /*
+        We disable the interrupts to perform an atomic action
+    */
     disable_interrupt ();
+    /*
+        Round Robin is only used for low priority threads
+    */
     if (mythread_getpriority() == LOW_PRIORITY) {
         running->ticks--;
-        printf("hhh THREAD %d - TICKS %d\n", running->tid, running->ticks);
+        /*
+            If the number of ticks is zero, we need to swap to the next thread (Round Robin)
+        */
         if (running->ticks<=0){
             running->ticks = QUANTUM_TICKS;
             running->state = INIT;
-            printf("hhh TICKS FINISHED. STORING THREAD %d IN QUEUE\n", running->tid);
+            /*
+                We will enqueue the current thread and find the next one with the scheduler
+            */
             enqueue (q_low , running);
             TCB* next = scheduler();
+            /*
+                If the current and next thread are the same, we do not need to swap
+            */
             if (next != running) {
+                /*
+                    We update the 'running' and 'current' variables, and set the context to the next thread
+                */
                 TCB* aux = running;
                 printf("*** SWAPCONTEXT FROM %d TO %d\n", running->tid, next->tid);
                 running = next;
@@ -245,6 +276,9 @@ void timer_interrupt(int sig)
 
 /* Activator */
 void activator(TCB* next){
+    /*
+        We update the 'running' and 'current' variables, and set the context to the next thread
+    */
     TCB * aux = running;
     running = next;
     printf("*** THREAD %d TERMINATED : SETCONTEXT OF %d\n", aux->tid, running->tid);
