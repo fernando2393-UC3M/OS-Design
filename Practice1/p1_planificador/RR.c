@@ -211,16 +211,10 @@ void timer_interrupt(int sig)
         */
         if (next != running) {
             /*
-                We update the 'running' and 'current' variables, and set the context to the next thread
+                Swap the context to the next thread
             */
-            TCB* aux = running;
             printf("*** SWAPCONTEXT FROM %d TO %d\n", running->tid, next->tid);
-            running = next;
-            current = running->tid;
-            if(swapcontext (&(aux->run_env), &(running->run_env)) == -1){
-              perror("*** ERROR: swapcontext in timer_interrupt");
-              exit(-1);
-            }
+            activator(next);
         }
     }
     enable_interrupt();
@@ -234,10 +228,16 @@ void activator(TCB* next){
     TCB * aux = running;
     running = next;
     current = running->tid;
-    printf("*** THREAD %d TERMINATED : SETCONTEXT OF %d\n", aux->tid, running->tid);
-    if(setcontext (&(next->run_env)) == -1){
-      perror("*** ERROR: setcontext in activator");
-      exit(-1);
+    if (aux->state != FREE) {
+        if(swapcontext (&(aux->run_env), &(running->run_env)) == -1){
+          perror("*** ERROR: swapcontext in activator");
+          exit(-1);
+        }
+    } else {
+        printf("*** THREAD %d TERMINATED : SETCONTEXT OF %d\n", aux->tid, running->tid);
+        if(setcontext (&(next->run_env)) == -1){
+          perror("*** ERROR: setcontext in activator");
+          exit(-1);
+        }
     }
-    printf("mythread_free: After setcontext, should never get here!!...\n");
 }
