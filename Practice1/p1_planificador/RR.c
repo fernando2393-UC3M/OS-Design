@@ -217,7 +217,10 @@ void timer_interrupt(int sig)
             printf("*** SWAPCONTEXT FROM %d TO %d\n", running->tid, next->tid);
             running = next;
             current = running->tid;
-            swapcontext (&(aux->run_env), &(running->run_env));
+            if(swapcontext (&(aux->run_env), &(running->run_env)) == -1){
+              perror("*** ERROR: swapcontext in timer_interrupt");
+              exit(-1);
+            }
         }
     }
     enable_interrupt();
@@ -232,6 +235,9 @@ void activator(TCB* next){
     running = next;
     current = running->tid;
     printf("*** THREAD %d TERMINATED : SETCONTEXT OF %d\n", aux->tid, running->tid);
-    setcontext (&(next->run_env));
+    if(setcontext (&(next->run_env)) == -1){
+      perror("*** ERROR: setcontext in activator");
+      exit(-1);
+    }
     printf("mythread_free: After setcontext, should never get here!!...\n");
 }

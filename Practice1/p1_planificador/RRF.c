@@ -117,7 +117,6 @@ int mythread_create (void (*fun_addr)(),int priority)
   t_state[i].run_env.uc_stack.ss_flags = 0;
   makecontext(&t_state[i].run_env, fun_addr, 1);
 
-
   printf("*** THREAD %d READY\n", t_state[i].tid);
 
   /*
@@ -135,7 +134,10 @@ int mythread_create (void (*fun_addr)(),int priority)
       current = running->tid;
       aux->ticks = QUANTUM_TICKS;
       enqueue (q_low , aux);
-      swapcontext (&(aux->run_env), &(running->run_env));
+      if(swapcontext (&(aux->run_env), &(running->run_env)) == -1){
+        perror("*** ERROR: swapcontext in my_thread_create");
+        exit(-1);
+      }
   /*
       Otherwise, we enqueue the new thread in its corresponding queue,
       according to its priority.
@@ -267,7 +269,10 @@ void timer_interrupt(int sig)
                 printf("*** SWAPCONTEXT FROM %d TO %d\n", running->tid, next->tid);
                 running = next;
                 current = running->tid;
-                swapcontext (&(aux->run_env), &(running->run_env));
+                if(swapcontext (&(aux->run_env), &(running->run_env)) == -1){
+                  perror("*** ERROR: swapcontext in timer_interrupt");
+                  exit(-1);
+                }
             }
         }
     }
@@ -282,6 +287,9 @@ void activator(TCB* next){
     TCB * aux = running;
     running = next;
     printf("*** THREAD %d TERMINATED : SETCONTEXT OF %d\n", aux->tid, running->tid);
-    setcontext (&(next->run_env));
+    if(setcontext (&(next->run_env)) == -1){
+      perror("*** ERROR: setcontext in activator");
+      exit(-1);
+    }
     printf("mythread_free: After setcontext, should never get here!!...\n");
 }
