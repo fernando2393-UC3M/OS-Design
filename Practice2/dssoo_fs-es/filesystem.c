@@ -41,20 +41,27 @@ int mkFS(long deviceSize)
 
 	/* Blocks calculation */
 
-	int totalBlocks = deviceSize / BLOCK_SIZE; // Maximum number of blocks --> 5120 --> int (already rounded if necessary)
-	int inodeMapBlocks = 1;
-	int dataMapBlocks = totalBlocks / BLOCK_SIZE; // Blocks represented per byte
+	int totalBlocks = ceil(deviceSize / BLOCK_SIZE); // Maximum number of blocks --> 5120 --> int (already rounded if necessary)
+
+	int dataMapBlocks = ceil(totalBlocks / BLOCK_SIZE); // Blocks represented per byte
 
 	/* Reminder check */
 
-	if ((dataMapBlocks % 8) != 0 || dataMapBlocks == 0) { // Increment in one the number of dataMap blocks
-		dataMapBlocks = dataMapBlocks / 8;
-		dataMapBlocks++;
-	}
+	// if ((dataMapBlocks % 8) != 0 || dataMapBlocks == 0) { // Increment in one the number of dataMap blocks
+	// 	dataMapBlocks = dataMapBlocks / 8;
+	// 	dataMapBlocks++;
+	// }
 
-	int inodeBlocks = 1;
+	/* Preguntar lo del bloque de arranque */
+	int bootBlocks = 1;
+	int superblocks = 1;
 
-	int dataBlocks = totalBlocks - 1 - 1 - inodeMapBlocks - dataMapBlocks - inodeBlocks; // total blocks minus those reserved (boot, superblock) and maps and inodes
+	/* Preguntar el por que de esto */
+	int inodeBlocks = ceil(sizeof(inode)*MAX_FILES / BLOCK_SIZE);
+	int inodeMapBlocks = ceil(inodeBlocks / BLOCK_SIZE);
+
+	// total blocks minus those reserved (boot, superblock) and maps and inodes
+	int dataBlocks = totalBlocks - bootBlocks - superblocks - inodeMapBlocks - dataMapBlocks - inodeBlocks;
 
 	if (dataBlocks < 0) {
 		perror("Error: No enough space available. Try with a bigger size image!\n");
@@ -67,14 +74,14 @@ int mkFS(long deviceSize)
 	sblock.inodeMapNumBlocks = inodeMapBlocks; // Number of blocks of inode map
 	sblock.dataMapNumBlocks = dataMapBlocks; // Number of blocks of data map
 	sblock.numInodes = inodeBlocks; // 1 block per inode
-	sblock.firstInode = 1 + 1 + inodeMapBlocks + dataMapBlocks;
-	sblock.firstDataBlock = 1 + 1 + inodeMapBlocks + dataMapBlocks + inodeBlocks;
+	sblock.firstInode = bootBlocks + superblocks + inodeMapBlocks + dataMapBlocks;
+	sblock.firstDataBlock = bootBlocks + superblocks + inodeMapBlocks + dataMapBlocks + inodeBlocks;
 	sblock.deviceSize = deviceSize;
 	memset(sblock.padding, '0', sizeof(sblock.padding)); // Fill with '0' remaining space after substracting busy space (size in metadata.h)
 
 	/* Write superblock to DEVICE_IMAGE */
-	
-	bwrite(DEVICE_IMAGE, 1 , (char *) &sblock); // Write into DEVICE_IMAGE in position 1 (0 is boot) sblock content
+
+	bwrite(DEVICE_IMAGE, 1, (char *) &sblock); // Write into DEVICE_IMAGE in position 1 (0 is boot) sblock content
 
 	return 0;
 }
