@@ -8,6 +8,10 @@
 
 #define MAGIC_NUMBER 0x000D5500 /* Superblock magic number (slides) */
 
+/* Preguntar número de inodos */
+
+#define MAX_FILES 40 /* Maxium number of files */
+
 #define bitmap_getbit(bitmap_, i_) (bitmap_[i_ >> 3] & (1 << (i_ & 0x07)))
 static inline void bitmap_setbit(char *bitmap_, int i_, int val_) {
   if (val_)
@@ -30,6 +34,15 @@ typedef struct {
 
 } superblock;
 
+typedef struct {
+  unsigned int position;
+  unsigned int open;
+} inode;
+
 /* Metadata of the FS */
 
 superblock sblock;  /* FS superblock*/
+
+inode inodes [MAX_FILES]; 
+
+
