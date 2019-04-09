@@ -75,6 +75,7 @@ int mkFS(long deviceSize)
 	sblock.dataMapNumBlocks = dataMapBlocks; // Number of blocks of data map
 	sblock.numInodes = MAX_FILES; // 1 inode per file
 	sblock.firstInode = bootBlocks + superblocks + inodeMapBlocks + dataMapBlocks;
+	sblock.dataBlockNum = dataBlocks;
 	sblock.firstDataBlock = bootBlocks + superblocks + inodeMapBlocks + dataMapBlocks + inodeBlocks;
 	sblock.deviceSize = deviceSize;
 	memset(sblock.padding, '0', sizeof(sblock.padding)); // Fill with '0' remaining space after substracting busy space (size in metadata.h)
@@ -82,6 +83,29 @@ int mkFS(long deviceSize)
 	/* Write superblock to DEVICE_IMAGE */
 
 	bwrite(DEVICE_IMAGE, 1, (char *) &sblock); // Write into DEVICE_IMAGE in position 1 (0 is boot) sblock content
+
+	 /* Allocate space in memory for inodes map and initialize its elements to 0 */
+	i_map = (char *) malloc(MAX_FILES / 8); /* Bits allocation */
+    for (int i = 0; i < sblock.numInodes; i++) {
+        bitmap_setbit(i_map, i, 0); // Set bit i inside i_map
+    }
+
+	/* Allocate space in memory for data blocks map and initialize its elements to 0 */
+    b_map = (char *) malloc((dataBlocks / 8) + 1); // ¿Este 1 es necesario o no? --> Ceiling function
+    for (int i = 0; i < sblock.dataBlockNum; i++) {
+        bitmap_setbit(b_map, i, 0); // Set bit i inside b_map
+    }
+
+    /* Initialize array of iNodes to 0 */
+    for (int i = 0; i < sblock.numInodes; i++) {
+        memset(&(inodes[i]), 0, sizeof(inode_t));
+    }
+
+    /* Call fssync() to write all the metadata created in the disk */
+    if (fssync() < 0) {
+        perror("mkFS failed: Error when writing metadata\n");
+        return -1;
+    }
 
 	return 0;
 }

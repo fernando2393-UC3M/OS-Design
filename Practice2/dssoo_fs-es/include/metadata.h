@@ -51,4 +51,7 @@ superblock_t sblock;  /* FS superblock*/
 
 inode_t inodes [MAX_FILES]; 
 
+char *i_map;  /* Map of used iNodes */
+char *b_map;  /* Map of used dataBlocks */
+
 
