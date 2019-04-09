@@ -57,7 +57,7 @@ int mkFS(long deviceSize)
 	int superblocks = 1;
 
 	/* Preguntar el por que de esto */
-	int inodeBlocks = ceil(sizeof(inode)*MAX_FILES / BLOCK_SIZE);
+	int inodeBlocks = ceil(sizeof(inode_t)*MAX_FILES / BLOCK_SIZE);
 	int inodeMapBlocks = ceil(inodeBlocks / BLOCK_SIZE);
 
 	// total blocks minus those reserved (boot, superblock) and maps and inodes
@@ -73,7 +73,7 @@ int mkFS(long deviceSize)
 	sblock.magicNumber = MAGIC_NUMBER; // Magic number --> 0x000D5500
 	sblock.inodeMapNumBlocks = inodeMapBlocks; // Number of blocks of inode map
 	sblock.dataMapNumBlocks = dataMapBlocks; // Number of blocks of data map
-	sblock.numInodes = inodeBlocks; // 1 block per inode
+	sblock.numInodes = MAX_FILES; // 1 inode per file
 	sblock.firstInode = bootBlocks + superblocks + inodeMapBlocks + dataMapBlocks;
 	sblock.firstDataBlock = bootBlocks + superblocks + inodeMapBlocks + dataMapBlocks + inodeBlocks;
 	sblock.deviceSize = deviceSize;
