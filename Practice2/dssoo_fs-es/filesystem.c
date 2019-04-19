@@ -96,8 +96,8 @@ int mkFS(long deviceSize)
         memset(&(inodes[i]), 0, sizeof(inode_t));
     }
 
-    /* Call fssync() to write all the metadata created in the disk */
-    if (fssync() < 0) {
+    /* Call sync() to write all the metadata created in the disk */
+    if (sync() < 0) {
         perror("mkFS failed: Error when writing metadata\n");
         return -1;
     }
@@ -161,8 +161,8 @@ int unmountFS(void)
         }
     }
 
-    /* Call fssync() to write metadata on file */
-    if (fssync() < 0) {
+    /* Call sync() to write metadata on file */
+    if (sync() < 0) {
         fprintf(stderr, "Error in unmountFS: error while syncing metadata\n");
         return -1;
     }
@@ -260,11 +260,93 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 	return -2;
 }
 
+
+/*
+ * @brief   Search for a free inode and set its value in inodes map to 1
+ * @return  ID of the inode available if any, -1 if not
+ */
+int ialloc(void) {
+    int i;
+    /* To search for a free inode */
+    for (i = 0; i < sblock.numInodes; i++) {
+        if (bitmap_getbit(i_map, i) == 0) {
+            /* inode busy right now */
+            bitmap_setbit(i_map, i, 1);
+            /* Default values for the inode */
+            memset(&(inodes[i]), 0, sizeof(inode_t));
+            /* Return the inode identification */
+            return i;
+        }
+    }
+    fprintf(stderr, "Error: maximum number of files reached\n");
+    return -1;
+}
+
+/*
+ * @brief   Search for a free data block, set its bytes to 0 and set its
+ *          value in data blocks map to 1
+ * @return  ID of the data block available if any, -1 if not
+ */
+int alloc(void) {
+    int i;
+    char buffer[BLOCK_SIZE];
+
+    for (i = 0; i < sblock.numDataBlocks; i++) {
+        if (bitmap_getbit(b_map, i) == 0) {
+            /* busy block right now */
+            bitmap_setbit(b_map, i, 1);
+
+            /* default values for the block */
+            memset(buffer, 0, BLOCK_SIZE);
+            bwrite(DEVICE_IMAGE, i + sblock.firstDataBlock, buffer);
+            /* it returns the block id */
+            return i;
+        }
+    }
+    fprintf(stderr, "Error!!\n");
+    return -1;
+}
+
+/*
+ * @brief   Sets the value of the inode provided to 0 in inodes map
+ * @return  0 if success, -1 if inode not found
+ */
+int ifree(int inode_id) {
+    /* to check the inode_id vality */
+    if (inode_id > sblock.numInodes || inode_id < 0) {
+    	fprintf(stderr, "Error!!\n");
+        return -1;
+    }
+
+    /* free inode */
+    bitmap_setbit(i_map, inode_id, 0);
+
+    return 0;
+}
+
+/*
+ * @brief   Sets the value of the data block provided to 0 in data block map
+ * @return  0 if success, -1 if data block not found
+ */
+int bfree(int block_id) {
+    /* to check the inode_id vality */
+    if (block_id > sblock.numDataBlocks || block_id < 0) {
+    	fprintf(stderr, "Error!!\n");
+        return -1;
+    }
+
+    /* free data block */
+    bitmap_setbit(b_map, block_id, 0);
+
+    return 0;
+}
+
+
 /*
  * @brief   Writes the metadata in memory to the disk image
  * @return  0 if success, -1 if error
  */
-int fssync(void) {
+int sync(void) {
     int i;
     /* Write super into disk */
     bwrite(DEVICE_IMAGE, 0, &sblock);
