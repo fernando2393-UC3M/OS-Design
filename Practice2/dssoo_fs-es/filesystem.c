@@ -194,7 +194,25 @@ int removeFile(char *path)
  */
 int openFile(char *path)
 {
-	return -2;
+	// int inode_id;
+	//
+	// /* Search for the inode of the file */
+	// inode_id = namei(path);
+	// if (inode_id < 0) {
+	// 	fprintf(stderr, "Error in openFile: file %s not found\n", path);
+	// 	return -1;
+	// }
+	//
+	// inodes_x[inode_id].opened = 0;  /* Set file state to close for checkFile */
+	//
+	// if (checkFile(path) != 0) {
+	// 	return -2;
+	// }
+	//
+	// inodes_x[inode_id].position = 0; /* Set seek descriptor to begin */
+	// inodes_x[inode_id].opened = 1;  /* Set file state to open */
+	//
+	// return inode_id;
 }
 
 /*
@@ -203,7 +221,15 @@ int openFile(char *path)
  */
 int closeFile(int fileDescriptor)
 {
-	return -1;
+	if (fileDescriptor >= sblock.numInodes || fileDescriptor < 0) {
+        fprintf(stderr, "Error in closeFile: wrong file descriptor\n");
+        return -1;
+    }
+
+    inodes_x[fileDescriptor].position = 0; /* Set seek descriptor to begin */
+    inodes_x[fileDescriptor].opened = 0;  /* Set file state to closed */
+
+    return 0;
 }
 
 /*

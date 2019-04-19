@@ -11,6 +11,7 @@
 /* Preguntar número de inodos */
 
 #define MAX_FILES 40 /* Maxium number of files */
+#define MAX_ENTRIES 10 /* Maxium number of entries per inode */
 #define MAX_FILE_NAME 32 /* Longest inode name */
 #define MAX_PATH_LEN_FOLDER 99 /* Longest folder path name */
 #define MAX_PATH_LEN_FILE 132 /* Longest file path name */
@@ -44,6 +45,7 @@ typedef struct {
   unsigned int dataBlockPos; // Position of the datablock
   unsigned int tipo;
   unsigned int size;
+  unsigned int entradas [MAX_ENTRIES]
 } inode_t;
 
 /* Metadata of the FS */
