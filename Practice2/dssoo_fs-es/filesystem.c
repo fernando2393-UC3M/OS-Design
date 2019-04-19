@@ -151,7 +151,23 @@ int mountFS(void)
  */
 int unmountFS(void)
 {
-	return -1;
+	int i;
+
+    /* Check if any file still opened */
+    for (i = 0; i < sblock.numInodes; i++) {
+        if (inodes_x[i].opened == 1) {
+            fprintf(stderr, "Error in unmountFS: file %s is opened\n", inodes[i].name);
+            return -1;
+        }
+    }
+
+    /* Call fssync() to write metadata on file */
+    if (fssync() < 0) {
+        fprintf(stderr, "Error in unmountFS: error while syncing metadata\n");
+        return -1;
+    }
+
+    return 0;
 }
 
 /*

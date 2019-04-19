@@ -52,3 +52,8 @@ inode_t inodes [MAX_FILES];
 
 char *i_map;  /* Map of used iNodes */
 char *b_map;  /* Map of used dataBlocks */
+
+struct {
+  int position; /* Position of the file seek pointer */
+  int opened; /* 0 if file is closed, 1 if opened */
+} inodes_x[MAX_FILES];
