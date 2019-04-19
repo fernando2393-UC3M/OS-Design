@@ -239,10 +239,38 @@ int removeFile(char *path)
 	return 0;
 }
 
+
 /*
  * @brief	Opens an existing file.
  * @return	The file descriptor if possible, -1 if file does not exist, -2 in case of error..
  */
+int openFile(char *path){
+
+	int inode_id;
+
+	char * rel_path = dirname(path); // Here we get the path of the file without the file name
+	char * filename =  basename(path); // Here we get the name of the file from the path 
+
+	inode_id = namei(filename);
+
+	if(inode_id < 0) {
+		fprintf(stderr, "Error in createFile: file does not exist\n");
+        return -1;
+	}
+
+	inodes_x[inode_id].position = 0;
+	inodes_x[inode_id].position = 1;
+
+	return inode_id;
+	
+}
+
+/*
+ * @brief	Opens an existing file.
+ * @return	The file descriptor if possible, -1 if file does not exist, -2 in case of error..
+ */
+
+/*
 int openFile(char *path)
 {
 
@@ -279,7 +307,11 @@ int openFile(char *path)
 
 	int inode_id;
 
+	*/
+
 	/* Search for the inode of the file */
+
+	/*
 	inode_id = namei(prevFound);
 	if (inode_id < 0) {
 		fprintf(stderr, "Error in openFile: file %s not found\n", path);
@@ -296,12 +328,14 @@ int openFile(char *path)
 		return -2;
 	}
 
+	*/
 
-	inodes_x[inode_id].position = 0; /* Set seek descriptor to begin */
-	inodes_x[inode_id].opened = 1;  /* Set file state to open */
 
-	return inode_id;
-}
+	// inodes_x[inode_id].position = 0; /* Set seek descriptor to begin */
+	// inodes_x[inode_id].opened = 1;  /* Set file state to open */
+
+	// return inode_id;
+// }
 
 /*
  * @brief	Closes a file.
