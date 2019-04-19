@@ -36,7 +36,7 @@
   * @brief   Found the inode ID containing the file passed
   * @return  ID of the inode, -1 if not found
   */
- int namei(char *path);
+ int namei(char *fname);
 
  /*
   * @brief   Return the index of the data block that contains the byte indicated

@@ -195,25 +195,61 @@ int removeFile(char *path)
  */
 int openFile(char *path)
 {
-	// int inode_id;
-	//
-	// /* Search for the inode of the file */
-	// inode_id = namei(path);
-	// if (inode_id < 0) {
-	// 	fprintf(stderr, "Error in openFile: file %s not found\n", path);
-	// 	return -1;
-	// }
-	//
-	// inodes_x[inode_id].opened = 0;  /* Set file state to close for checkFile */
-	//
-	// if (checkFile(path) != 0) {
-	// 	return -2;
-	// }
-	//
-	// inodes_x[inode_id].position = 0; /* Set seek descriptor to begin */
-	// inodes_x[inode_id].opened = 1;  /* Set file state to open */
-	//
-	// return inode_id;
+
+	int i, j, isFound;
+	char *found, *prevFound;
+
+	while( (found = strsep(&string,"/")) != NULL ) {
+		isFound = 0;
+
+		if (prevFound == NULL) {
+			prevFound = found;
+			continue;
+		}
+
+		for (i = 0; i < sblock.numInodes; i++) {
+			if (!isFound && !strcmp(inodes[i].name, prevFound)) {
+				if (inodes[i].type == TYPE_FOLDER){
+					for (j = 0; j < MAX_ENTRIES; j++) {
+						if (!isFound && !strcmp(inodes[inodes[i].entradas[j]].name, found)) {
+							prevFound = found;
+							isFound = 1;
+						}
+					}
+				}
+			}
+		}
+
+		if (!isFound) {
+			fprintf(stderr, "not found!!\n");
+			return -1;
+		}
+	}
+
+	int inode_id;
+
+	/* Search for the inode of the file */
+	inode_id = namei(prevFound);
+	if (inode_id < 0) {
+		fprintf(stderr, "Error in openFile: file %s not found\n", path);
+		return -1;
+	}
+
+	if (inodes[inode_id].type != TYPE_FILE) {
+		fprintf(stderr, "Error openFile: not a file\n");
+		return -2;
+	}
+
+	if (inodes_x[inode_id].opened != 0) {
+		fprintf(stderr, "Error openFile: file is already opened!\n");
+		return -2;
+	}
+
+
+	inodes_x[inode_id].position = 0; /* Set seek descriptor to begin */
+	inodes_x[inode_id].opened = 1;  /* Set file state to open */
+
+	return inode_id;
 }
 
 /*
@@ -493,44 +529,17 @@ int bfree(int block_id) {
  * @brief   Found the inode ID containing the file passed
  * @return  ID of the inode, -1 if not found
  */
-int namei(char *path) {
+int namei(char *fname) {
 
     if (path == NULL) {
         fprintf(stderr, "Error namei\n");
         return -1;
     }
 
-	int i, j;
-	char *found, *prevFound;
-
-	while( (found = strsep(&string,"/")) != NULL ) {
-		if (prevFound == NULL) {
-			prevFound = found;
-			continue;
-		}
-
-		for (i = 0; i < sblock.numInodes; i++) {
-	        if (!strcmp(inodes[i].name, prevFound)) {
-				if (inodes[i].type == TYPE_FOLDER){
-					for (j = 0; j < MAX_ENTRIES; j++) {
-				        if (!strcmp(inodes[inodes[i].entradas[j]].name, found)) {
-							prevFound = found;
-							continue;
-				        }
-				    }
-				}
-				fprintf(stderr, "not found!!\n");
-			    return -1;
-	        }
-	    }
-
-		fprintf(stderr, "not found!!\n");
-	    return -1;
-	}
-
+	int i;
     /* seek for the inode with name <fname> */
     for (i = 0; i < sblock.numInodes; i++) {
-        if (!strcmp(inodes[i].name, prevFound)) {
+        if (!strcmp(inodes[i].name, fname)) {
             return i;
         }
     }
