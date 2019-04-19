@@ -36,7 +36,7 @@
   * @brief   Found the inode ID containing the file passed
   * @return  ID of the inode, -1 if not found
   */
- int namei(char *fname);
+ int namei(char *path);
 
  /*
   * @brief   Return the index of the data block that contains the byte indicated
@@ -44,7 +44,7 @@
   * @return  Index of the block, -1 if not found
   */
  int bmap(int inode_id, int offset);
- 
+
  /*
   * @brief   Writes data in memory to the disk image
   * @return  0 if success, -1 if error

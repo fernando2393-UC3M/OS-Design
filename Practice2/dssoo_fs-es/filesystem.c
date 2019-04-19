@@ -337,6 +337,46 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
  */
 int lseekFile(int fileDescriptor, long offset, int whence)
 {
+
+	if (fileDescriptor >= sblock.numInodes || fileDescriptor < 0) {
+		fprintf(stderr, "Error in lseekFile: wrong file descriptor\n");
+		return -1;
+	}
+
+	if (inodes_x[fileDescriptor].type != TYPE_FILE) {
+      fprintf(stderr, "Error in lseekFile: not a file\n");
+      return -1;
+    }
+
+	if (inodes_x[fileDescriptor].opened == 0) {
+      fprintf(stderr, "Error in lseekFile: file not opened\n");
+      return -1;
+    }
+
+	if (whence == FS_SEEK_BEGIN){
+		inodes_x[fileDescriptor].position = 0;
+		return 0;
+	}
+
+	if (whence == FS_SEEK_END) {
+		inodes_x[fileDescriptor].position = inodes[fileDescriptor].size;
+		return 0;
+	}
+
+	if (whence == FS_SEEK_CUR){
+		if (inodes_x[fileDescriptor].position + offset > inodes[fileDescriptor].size) {
+			fprintf(stderr, "Error in lseekFile: Te has pasado por alante\n");
+			return -1;
+		}
+		if (inodes_x[fileDescriptor].position + offset < 0) {
+			fprintf(stderr, "Error in lseekFile: Te has pasado por atras\n");
+			return -1;
+		}
+		inodes_x[fileDescriptor].position += offset;
+		return 0;
+	}
+	
+	fprintf(stderr, "Error in lseekFile: 1!!!\n");
 	return -1;
 }
 
@@ -452,9 +492,9 @@ int bfree(int block_id) {
  * @brief   Found the inode ID containing the file passed
  * @return  ID of the inode, -1 if not found
  */
-int namei(char *fname) {
+int namei(char *path) {
 
-    if (fname == NULL) {
+    if (path == NULL) {
         fprintf(stderr, "Error namei\n");
         return -1;
     }
@@ -463,7 +503,7 @@ int namei(char *fname) {
 
     /* seek for the inode with name <fname> */
     for (i = 0; i < sblock.numInodes; i++) {
-        if (!strcmp(inodes[i].name, fname)) {
+        if (!strcmp(inodes[i].name, path)) {
             return i;
         }
     }
