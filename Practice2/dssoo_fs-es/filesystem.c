@@ -238,7 +238,47 @@ int closeFile(int fileDescriptor)
  */
 int readFile(int fileDescriptor, void *buffer, int numBytes)
 {
-	return -1;
+	if (fileDescriptor >= sblock.numInodes || fileDescriptor < 0) {
+		fprintf(stderr, "Error in readFile: wrong file descriptor\n");
+		return -1;
+	}
+
+	if (inodes_x[fileDescriptor].type != TYPE_FILE) {
+      fprintf(stderr, "Error in readFile: not a file\n");
+      return -1;
+    }
+
+	if (inodes_x[fileDescriptor].opened == 0) {
+      fprintf(stderr, "Error in readFile: file not opened\n");
+      return -1;
+    }
+
+	char b[BLOCK_SIZE] ;
+	int b_id;
+
+	if (inodes_x[fileDescriptor].position + numBytes > inodes[fileDescriptor].size) {
+		numBytes = inodes[fileDescriptor].size - inodes_x[fileDescriptor].position;
+	}
+	if (numBytes < 0) {
+		fprintf(stderr, "Error in readFile: Segmentation fault\n");
+		return -1;
+	}
+
+	/* In this case, the seek pointer is located at EOF, so no bytes
+     * can be read */
+    if (numBytes == 0) {
+        return 0;
+    }
+
+	b_id = bmap(fileDescriptor, inodes_x[fileDescriptor].position);
+	// Poner el error de bmap!!!!!!!!!!!
+
+	bread(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b);
+	memmove(buffer, b+inodes_x[fileDescriptor].position, numBytes);
+
+	inodes_x[fileDescriptor].position += numBytes;
+
+	return numBytes;
 }
 
 /*
