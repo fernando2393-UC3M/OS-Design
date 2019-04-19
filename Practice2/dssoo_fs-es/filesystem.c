@@ -11,6 +11,7 @@
 #include "include/metadata.h"   // Type and structure declaration of the file system
 #include <math.h>
 #include <string.h>
+#include <libgen.h>
 
 /*
  * @brief 	Generates the proper file system structure in a storage device, as designed by the student.
@@ -172,12 +173,44 @@ int unmountFS(void)
 }
 
 /*
- * @brief	Creates a new file, provided it it doesn't exist in the file system.
+ * @brief	Creates a new file, provided that it doesn't exist in the file system.
  * @return	0 if success, -1 if the file already exists, -2 in case of error.
  */
 int createFile(char *path)
 {
-	return -2;
+	int b_id, inode_id;
+
+	char * rel_path = dirname(path); // Here we get the path of the file without the file name
+	char * filename =  basename(path); // Here we get the name of the file from the path
+
+	inode_id = namei(filename);
+
+	if (inode_id != -1) {
+		fprintf(stderr, "Error in createFile: file already exists\n");
+        return -1;
+	}
+
+	inode_id = ialloc(); // Returns id of available inode
+
+	if(inode_id < 0) {
+		fprintf(stderr, "Error in createFile: no inodes available\n");
+        return -2;
+	}
+
+	b_id = alloc();
+
+	if (b_id < 0) {
+		fprintf(stderr, "Error in createFile: no data blocks available\n");
+        return -2;
+	}
+
+	inodes[inode_id].type = TYPE_FILE; // Inode points to a file
+	strcpy(inodes[inode_id].name, filename);
+	inodes[inode_id].dataBlockPos = b_id;
+	inodes_x[inode_id].position = 0;
+	inodes_x[inode_id].opened = 1;	
+
+	return 0;
 }
 
 /*
@@ -186,7 +219,24 @@ int createFile(char *path)
  */
 int removeFile(char *path)
 {
-	return -2;
+
+	int inode_id;
+
+	char * rel_path = dirname(path); // Here we get the path of the file without the file name
+	char * filename =  basename(path); // Here we get the name of the file from the path
+
+	inode_id = namei(filename);
+
+	if (inode_id < 0){
+		fprintf(stderr, "Error in createFile: file does not exist\n");
+        return -1;
+	}
+
+	free(inodes[inode_id].dataBlockPos); // Free data block
+	memset(&(inodes[inode_id]), 0, sizeof(inode_t));
+	ifree(inode_id);
+
+	return 0;
 }
 
 /*
@@ -281,7 +331,7 @@ int readFile(int fileDescriptor, void *buffer, int numBytes)
 		return -1;
 	}
 
-	if (inodes_x[fileDescriptor].type != TYPE_FILE) {
+	if (inodes[fileDescriptor].type != TYPE_FILE) {
       fprintf(stderr, "Error in readFile: not a file\n");
       return -1;
     }
@@ -330,7 +380,7 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 		return -1;
 	}
 
-	if (inodes_x[fileDescriptor].type != TYPE_FILE) {
+	if (inodes[fileDescriptor].type != TYPE_FILE) {
       fprintf(stderr, "Error in writeFile: not a file\n");
       return -1;
     }
@@ -381,7 +431,7 @@ int lseekFile(int fileDescriptor, long offset, int whence)
 		return -1;
 	}
 
-	if (inodes_x[fileDescriptor].type != TYPE_FILE) {
+	if (inodes[fileDescriptor].type != TYPE_FILE) {
       fprintf(stderr, "Error in lseekFile: not a file\n");
       return -1;
     }
@@ -532,10 +582,10 @@ int bfree(int block_id) {
  */
 int namei(char *fname) {
 
-    if (path == NULL) {
+   /* if (path == NULL) {
         fprintf(stderr, "Error namei\n");
         return -1;
-    }
+    } */
 
 	int i;
     /* seek for the inode with name <fname> */
