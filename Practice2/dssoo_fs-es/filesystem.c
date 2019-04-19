@@ -233,7 +233,7 @@ int fssync(void) {
     }
 
     /* Write inodes to disk */
-    for (i = 0; i < (sblock.numInodes * sizeof(inode_t) / BLOCK_SIZE); i++) {
+    for (i = 0; i < ceil(sblock.numInodes * sizeof(inode_t) / BLOCK_SIZE); i++) {
         bwrite(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((char *) inodes + i * BLOCK_SIZE));
     }
 
