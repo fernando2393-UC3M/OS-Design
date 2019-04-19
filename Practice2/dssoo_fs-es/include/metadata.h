@@ -42,6 +42,8 @@ typedef struct {
 typedef struct {
   char name [MAX_FILE_NAME + 1]; // Due to the final character \0
   unsigned int dataBlockPos; // Position of the datablock
+  unsigned int tipo;
+  unsigned int size;
 } inode_t;
 
 /* Metadata of the FS */

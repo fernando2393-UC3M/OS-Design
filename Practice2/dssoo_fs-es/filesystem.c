@@ -303,7 +303,7 @@ int alloc(void) {
             return i;
         }
     }
-    fprintf(stderr, "Error!!\n");
+    fprintf(stderr, "Error alloc!!\n");
     return -1;
 }
 
@@ -313,8 +313,8 @@ int alloc(void) {
  */
 int ifree(int inode_id) {
     /* to check the inode_id vality */
-    if (inode_id > sblock.numInodes || inode_id < 0) {
-    	fprintf(stderr, "Error!!\n");
+    if (inode_id >= sblock.numInodes || inode_id < 0) {
+    	fprintf(stderr, "Error ifree!!\n");
         return -1;
     }
 
@@ -330,8 +330,8 @@ int ifree(int inode_id) {
  */
 int bfree(int block_id) {
     /* to check the inode_id vality */
-    if (block_id > sblock.numDataBlocks || block_id < 0) {
-    	fprintf(stderr, "Error!!\n");
+    if (block_id >= sblock.numDataBlocks || block_id < 0) {
+    	fprintf(stderr, "Error bfree!!\n");
         return -1;
     }
 
@@ -341,6 +341,47 @@ int bfree(int block_id) {
     return 0;
 }
 
+/*
+ * @brief   Found the inode ID containing the file passed
+ * @return  ID of the inode, -1 if not found
+ */
+int namei(char *fname) {
+
+    if (fname == NULL) {
+        fprintf(stderr, "Error namei\n");
+        return -1;
+    }
+
+	int i;
+
+    /* seek for the inode with name <fname> */
+    for (i = 0; i < sblock.numInodes; i++) {
+        if (!strcmp(inodes[i].name, fname)) {
+            return i;
+        }
+    }
+
+	fprintf(stderr, "not found!!\n");
+    return -1;
+}
+
+/*
+ * @brief   Return the index of the data block that contains the byte indicated by the offset
+ * @return  Index of the block, -1 if not found
+ */
+int bmap(int inode_id, int offset) {
+	/* to check the inode_id vality */
+    if (inode_id >= sblock.numInodes || inode_id < 0) {
+    	fprintf(stderr, "Error bmap!!\n");
+        return -1;
+    }
+
+	if (offset < BLOCK_SIZE)
+		return inodes[inode_id].dataBlockPos;
+
+	fprintf(stderr, "Error bmap!!\n");
+	return -1;
+}
 
 /*
  * @brief   Writes the metadata in memory to the disk image
