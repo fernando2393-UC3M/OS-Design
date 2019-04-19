@@ -28,11 +28,11 @@ static inline void bitmap_setbit(char *bitmap_, int i_, int val_) {
 typedef struct {
 
   unsigned int magicNumber;                             /* Superblock Magic Number */
-  unsigned int inodeMapNumBlocks;                       /* Inode Map Number of blocks */
-  unsigned int dataMapNumBlocks;                        /* Data Map Number of blocks */
+  unsigned int numINodeMapBlocks;                       /* Inode Map Number of blocks */
+  unsigned int numDataMapBlocks;                        /* Data Map Number of blocks */
   unsigned int numInodes;                               /* Number of inodes */
-  unsigned int firstInode;                              /* First device inode */
-  unsigned int dataBlockNum;                            /* Data Blocks Number */
+  unsigned int firstInodeBlock;                              /* First device inode */
+  unsigned int numDataBlocks;                            /* Data Blocks Number */
   unsigned int firstDataBlock;                          /* First device data block */
   unsigned int deviceSize;                              /* Total disk space (in bytes) */
   char padding[BLOCK_SIZE - 8 * sizeof(unsigned int)];  /* Padding field (to complete a block) */
@@ -41,17 +41,14 @@ typedef struct {
 
 typedef struct {
   char name [MAX_FILE_NAME + 1]; // Due to the final character \0
-  unsigned int position;
-  unsigned int open;
+  unsigned int dataBlockPos; // Position of the datablock
 } inode_t;
 
 /* Metadata of the FS */
 
 superblock_t sblock;  /* FS superblock*/
 
-inode_t inodes [MAX_FILES]; 
+inode_t inodes [MAX_FILES];
 
 char *i_map;  /* Map of used iNodes */
 char *b_map;  /* Map of used dataBlocks */
-
-

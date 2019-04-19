@@ -30,38 +30,35 @@ int mkFS(long deviceSize)
 
 	int fd; // Device descriptor
 
-	/* Open device for read and write */
+	/* Open disk image for read and write */
+    fd = open(DEVICE_IMAGE, O_RDWR);
+    if (fd < 0) {
+        perror("Error while opening 'disk.dat'");
+        return -1;
+    }
+    unsigned long diskSize = (unsigned long) lseek(fd, 0, SEEK_END);
+    close(fd);
 
-	fd = open(DEVICE_IMAGE, O_RDWR);
+    if (diskSize < deviceSize) {
+        fprintf(stderr, "Error in mkFS: Disk too small\n");
+        return -1;
+    }
 
-	if (fd < 0) {
-		fprintf(stderr, "Error: Error opening %s\n", DEVICE_IMAGE);
-		return -1;
-	}
+	/* No necesitamos bloque de arranque, por lo que no lo añadimos */
+	int superblocks = 1;
 
 	/* Blocks calculation */
 
 	int totalBlocks = ceil(deviceSize / BLOCK_SIZE); // Maximum number of blocks --> 5120 --> int (already rounded if necessary)
 
-	int dataMapBlocks = ceil(totalBlocks / BLOCK_SIZE); // Blocks represented per byte
-
-	/* Reminder check */
-
-	// if ((dataMapBlocks % 8) != 0 || dataMapBlocks == 0) { // Increment in one the number of dataMap blocks
-	// 	dataMapBlocks = dataMapBlocks / 8;
-	// 	dataMapBlocks++;
-	// }
-
-	/* Preguntar lo del bloque de arranque */
-	int bootBlocks = 1;
-	int superblocks = 1;
-
 	/* Preguntar el por que de esto */
 	int inodeBlocks = ceil(sizeof(inode_t)*MAX_FILES / BLOCK_SIZE);
 	int inodeMapBlocks = ceil(inodeBlocks / BLOCK_SIZE);
 
+	int dataMapBlocks = ceil((totalBlocks-inodeBlocks-inodeMapBlocks) / BLOCK_SIZE); // Blocks represented per byte
+
 	// total blocks minus those reserved (boot, superblock) and maps and inodes
-	int dataBlocks = totalBlocks - bootBlocks - superblocks - inodeMapBlocks - dataMapBlocks - inodeBlocks;
+	int dataBlocks = totalBlocks - superblocks - inodeMapBlocks - dataMapBlocks - inodeBlocks;
 
 	if (dataBlocks < 0) {
 		perror("Error: No enough space available. Try with a bigger size image!\n");
@@ -71,33 +68,31 @@ int mkFS(long deviceSize)
 	/* Superblock initialization */
 
 	sblock.magicNumber = MAGIC_NUMBER; // Magic number --> 0x000D5500
-	sblock.inodeMapNumBlocks = inodeMapBlocks; // Number of blocks of inode map
-	sblock.dataMapNumBlocks = dataMapBlocks; // Number of blocks of data map
+	sblock.numINodeMapBlocks = inodeMapBlocks; // Number of blocks of inode map
+	sblock.numDataMapBlocks = dataMapBlocks; // Number of blocks of data map
 	sblock.numInodes = MAX_FILES; // 1 inode per file
-	sblock.firstInode = bootBlocks + superblocks + inodeMapBlocks + dataMapBlocks;
-	sblock.dataBlockNum = dataBlocks;
-	sblock.firstDataBlock = bootBlocks + superblocks + inodeMapBlocks + dataMapBlocks + inodeBlocks;
+	sblock.firstInodeBlock = superblocks + inodeMapBlocks + dataMapBlocks;
+	sblock.numDataBlocks = dataBlocks;
+	sblock.firstDataBlock = superblocks + inodeMapBlocks + dataMapBlocks + inodeBlocks;
 	sblock.deviceSize = deviceSize;
 	memset(sblock.padding, '0', sizeof(sblock.padding)); // Fill with '0' remaining space after substracting busy space (size in metadata.h)
 
-	/* Write superblock to DEVICE_IMAGE */
-
-	bwrite(DEVICE_IMAGE, 1, (char *) &sblock); // Write into DEVICE_IMAGE in position 1 (0 is boot) sblock content
+	int i;
 
 	 /* Allocate space in memory for inodes map and initialize its elements to 0 */
-	i_map = (char *) malloc(MAX_FILES / 8); /* Bits allocation */
-    for (int i = 0; i < sblock.numInodes; i++) {
+	i_map = (char *) malloc(ceil(MAX_FILES / 8)); /* Bits allocation */
+    for (i = 0; i < sblock.numInodes; i++) {
         bitmap_setbit(i_map, i, 0); // Set bit i inside i_map
     }
 
 	/* Allocate space in memory for data blocks map and initialize its elements to 0 */
-    b_map = (char *) malloc((dataBlocks / 8) + 1); // ¿Este 1 es necesario o no? --> Ceiling function
-    for (int i = 0; i < sblock.dataBlockNum; i++) {
+    b_map = (char *) malloc(ceil(dataBlocks / 8));
+    for (i = 0; i < sblock.numDataBlocks; i++) {
         bitmap_setbit(b_map, i, 0); // Set bit i inside b_map
     }
 
     /* Initialize array of iNodes to 0 */
-    for (int i = 0; i < sblock.numInodes; i++) {
+    for (i = 0; i < sblock.numInodes; i++) {
         memset(&(inodes[i]), 0, sizeof(inode_t));
     }
 
@@ -216,4 +211,31 @@ int rmDir(char *path)
 int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 {
 	return -2;
+}
+
+/*
+ * @brief   Writes the metadata in memory to the disk image
+ * @return  0 if success, -1 if error
+ */
+int fssync(void) {
+    int i;
+    /* Write super into disk */
+    bwrite(DEVICE_IMAGE, 0, (char *) &sblock);
+
+    /* Write inode map to disk */
+    for (i = 0; i < sblock.numINodeMapBlocks; i++) {
+        bwrite(DEVICE_IMAGE, 1 + i, ((char *) i_map + i * BLOCK_SIZE));
+    }
+
+    /* Write block map to disk */
+    for (i = 0; i < sblock.numDataMapBlocks; i++) {
+        bwrite(DEVICE_IMAGE, 1 + i + sblock.numINodeMapBlocks, ((char *) b_map + i * BLOCK_SIZE));
+    }
+
+    /* Write inodes to disk */
+    for (i = 0; i < (sblock.numInodes * sizeof(inode_t) / BLOCK_SIZE); i++) {
+        bwrite(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((char *) inodes + i * BLOCK_SIZE));
+    }
+
+    return 0;
 }
