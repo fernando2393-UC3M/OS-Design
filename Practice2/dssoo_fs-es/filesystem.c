@@ -80,13 +80,13 @@ int mkFS(long deviceSize)
 	int i;
 
 	 /* Allocate space in memory for inodes map and initialize its elements to 0 */
-	i_map = (char *) malloc(ceil(MAX_FILES / 8)); /* Bits allocation */
+	i_map = (char *) malloc(sblock.numINodeMapBlocks*BLOCK_SIZE); /* Bits allocation */
     for (i = 0; i < sblock.numInodes; i++) {
         bitmap_setbit(i_map, i, 0); // Set bit i inside i_map
     }
 
 	/* Allocate space in memory for data blocks map and initialize its elements to 0 */
-    b_map = (char *) malloc(ceil(dataBlocks / 8));
+    b_map = (char *) malloc(sblock.numDataMapBlocks*BLOCK_SIZE);
     for (i = 0; i < sblock.numDataBlocks; i++) {
         bitmap_setbit(b_map, i, 0); // Set bit i inside b_map
     }
@@ -111,7 +111,38 @@ int mkFS(long deviceSize)
  */
 int mountFS(void)
 {
-	return -1;
+    /* Read superblock (disk block 0) and store it into sblock */
+    if (bread(DEVICE_IMAGE, 0, &sblock) < 0) {
+        fprintf(stderr, "Error in mountFS: superblock cannot be read\n");
+        return -1;
+    }
+
+	int i;
+    /* Read from disk inode map */
+    for (i = 0; i < sblock.numINodeMapBlocks; i++) {
+        if (bread(DEVICE_IMAGE, 1 + i, ((char *) i_map + i * BLOCK_SIZE)) < 0) {
+            fprintf(stderr, "Error in mountFS: can't read inodes map\n");
+            return -1;
+        }
+    }
+
+    /* Read disk block map */
+    for (i = 0; i < sblock.numDataMapBlocks; i++) {
+        if (bread(DEVICE_IMAGE, 1 + i + sblock.numINodeMapBlocks, ((char *) b_map + i * BLOCK_SIZE)) < 0) {
+            fprintf(stderr, "Error in mountFS: can't read data block map\n");
+            return -1;
+        }
+    }
+
+    /* Read inodes from disk */
+    for (i = 0; i < ceil(sblock.numInodes * sizeof(inode_t) / BLOCK_SIZE); i++) {
+        if (bread(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((inode_t *) inodes + i * BLOCK_SIZE)) < 0) {
+            fprintf(stderr, "Error in mountFS: can't read iNodes\n");
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 /*
@@ -220,7 +251,7 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 int fssync(void) {
     int i;
     /* Write super into disk */
-    bwrite(DEVICE_IMAGE, 0, (char *) &sblock);
+    bwrite(DEVICE_IMAGE, 0, &sblock);
 
     /* Write inode map to disk */
     for (i = 0; i < sblock.numINodeMapBlocks; i++) {
@@ -234,7 +265,7 @@ int fssync(void) {
 
     /* Write inodes to disk */
     for (i = 0; i < ceil(sblock.numInodes * sizeof(inode_t) / BLOCK_SIZE); i++) {
-        bwrite(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((char *) inodes + i * BLOCK_SIZE));
+        bwrite(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((inode_t *) inodes + i * BLOCK_SIZE));
     }
 
     return 0;
