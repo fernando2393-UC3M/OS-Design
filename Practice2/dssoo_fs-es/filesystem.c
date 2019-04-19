@@ -199,7 +199,8 @@ int openFile(char *path)
 	int i, j, isFound;
 	char *found, *prevFound;
 
-	while( (found = strsep(&string,"/")) != NULL ) {
+
+	while( (found = strsep(&path,"/")) != NULL ) {
 		isFound = 0;
 
 		if (prevFound == NULL) {
