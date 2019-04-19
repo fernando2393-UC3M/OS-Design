@@ -45,7 +45,7 @@ typedef struct {
   unsigned int dataBlockPos; // Position of the datablock
   unsigned int tipo;
   unsigned int size;
-  unsigned int entradas [MAX_ENTRIES]
+  unsigned int entradas [MAX_ENTRIES];
 } inode_t;
 
 /* Metadata of the FS */

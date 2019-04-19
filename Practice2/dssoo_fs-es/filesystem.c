@@ -10,6 +10,7 @@
 #include "include/auxiliary.h"  // Headers for auxiliary functions
 #include "include/metadata.h"   // Type and structure declaration of the file system
 #include <math.h>
+#include <string.h>
 
 /*
  * @brief 	Generates the proper file system structure in a storage device, as designed by the student.
@@ -375,13 +376,13 @@ int lseekFile(int fileDescriptor, long offset, int whence)
 		inodes_x[fileDescriptor].position += offset;
 		return 0;
 	}
-	
+
 	fprintf(stderr, "Error in lseekFile: 1!!!\n");
 	return -1;
 }
 
 /*
- * @brief	Creates a new directory provided it it doesn't exist in the file system.
+ * @brief	Creates a new directory provided it doesn't exist in the file system.
  * @return	0 if success, -1 if the directory already exists, -2 in case of error.
  */
 int mkDir(char *path)
@@ -499,11 +500,37 @@ int namei(char *path) {
         return -1;
     }
 
-	int i;
+	int i, j;
+	char *found, *prevFound;
+
+	while( (found = strsep(&string,"/")) != NULL ) {
+		if (prevFound == NULL) {
+			prevFound = found;
+			continue;
+		}
+
+		for (i = 0; i < sblock.numInodes; i++) {
+	        if (!strcmp(inodes[i].name, prevFound)) {
+				if (inodes[i].type == TYPE_FOLDER){
+					for (j = 0; j < MAX_ENTRIES; j++) {
+				        if (!strcmp(inodes[inodes[i].entradas[j]].name, found)) {
+							prevFound = found;
+							continue;
+				        }
+				    }
+				}
+				fprintf(stderr, "not found!!\n");
+			    return -1;
+	        }
+	    }
+
+		fprintf(stderr, "not found!!\n");
+	    return -1;
+	}
 
     /* seek for the inode with name <fname> */
     for (i = 0; i < sblock.numInodes; i++) {
-        if (!strcmp(inodes[i].name, path)) {
+        if (!strcmp(inodes[i].name, prevFound)) {
             return i;
         }
     }
