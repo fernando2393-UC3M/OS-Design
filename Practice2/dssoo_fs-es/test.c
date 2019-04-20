@@ -219,7 +219,7 @@ int main()
 	///////
 
 	int bytes = writeFile(ret, "Hello my name is John Doe", 13);
-	if (bytes <= 0)
+	if (bytes < 0)
 	{
 		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST writeFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
 		return -1;
@@ -230,7 +230,7 @@ int main()
 
 	char * buffer = malloc(sizeof(char) * 13);
 	bytes = readFile(ret, buffer, 13);
-	if (ret <= 0)
+	if (bytes < 0)
 	{
 		fprintf(stdout, "%s%s%s%s%s", ANSI_COLOR_BLUE, "TEST readFile ", ANSI_COLOR_RED, "FAILED\n", ANSI_COLOR_RESET);
 		return -1;
