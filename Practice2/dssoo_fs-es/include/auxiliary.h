@@ -7,6 +7,8 @@
  */
 
 
+int ceilOfDivision (long a, long b);
+
  /*
   * @brief   Search for a free inode and set its value in inodes map to 1
   * @return  ID of the inode available if any, -1 if not
@@ -49,4 +51,4 @@
   * @brief   Writes data in memory to the disk image
   * @return  0 if success, -1 if error
   */
- int sync(void);
+ int syncFS(void);

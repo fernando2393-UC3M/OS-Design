@@ -9,9 +9,14 @@
 #include "include/filesystem.h" // Headers for the core functionality
 #include "include/auxiliary.h"  // Headers for auxiliary functions
 #include "include/metadata.h"   // Type and structure declaration of the file system
+#include <stdlib.h>
 #include <math.h>
 #include <string.h>
 #include <libgen.h>
+
+int ceilOfDivision (long a, long b) {
+	return (a / b) + ((a % b) != 0);
+}
 
 /*
  * @brief 	Generates the proper file system structure in a storage device, as designed by the student.
@@ -51,13 +56,13 @@ int mkFS(long deviceSize)
 
 	/* Blocks calculation */
 
-	int totalBlocks = ceil(deviceSize / BLOCK_SIZE); // Maximum number of blocks --> 5120 --> int (already rounded if necessary)
+	int totalBlocks = ceilOfDivision(deviceSize, BLOCK_SIZE); // Maximum number of blocks --> 5120 --> int (already rounded if necessary)
 
 	/* Preguntar el por que de esto */
-	int inodeBlocks = ceil(sizeof(inode_t)*MAX_FILES / BLOCK_SIZE);
-	int inodeMapBlocks = ceil(inodeBlocks / BLOCK_SIZE);
+	int inodeBlocks = ceilOfDivision(sizeof(inode_t)*MAX_FILES, BLOCK_SIZE);
+	int inodeMapBlocks = ceilOfDivision(inodeBlocks, BLOCK_SIZE);
 
-	int dataMapBlocks = ceil((totalBlocks-inodeBlocks-inodeMapBlocks) / BLOCK_SIZE); // Blocks represented per byte
+	int dataMapBlocks = ceilOfDivision((totalBlocks-inodeBlocks-inodeMapBlocks), BLOCK_SIZE); // Blocks represented per byte
 
 	// total blocks minus those reserved (boot, superblock) and maps and inodes
 	int dataBlocks = totalBlocks - superblocks - inodeMapBlocks - dataMapBlocks - inodeBlocks;
@@ -98,8 +103,8 @@ int mkFS(long deviceSize)
         memset(&(inodes[i]), 0, sizeof(inode_t));
     }
 
-    /* Call sync() to write all the metadata created in the disk */
-    if (sync() < 0) {
+    /* Call syncFS() to write all the metadata created in the disk */
+    if (syncFS() < 0) {
         perror("mkFS failed: Error when writing metadata\n");
         return -1;
     }
@@ -114,7 +119,7 @@ int mkFS(long deviceSize)
 int mountFS(void)
 {
     /* Read superblock (disk block 0) and store it into sblock */
-    if (bread(DEVICE_IMAGE, 0, &sblock) < 0) {
+    if (bread(DEVICE_IMAGE, 0, (char *) &sblock) < 0) {
         fprintf(stderr, "Error in mountFS: superblock cannot be read\n");
         return -1;
     }
@@ -137,8 +142,8 @@ int mountFS(void)
     }
 
     /* Read inodes from disk */
-    for (i = 0; i < ceil(sblock.numInodes * sizeof(inode_t) / BLOCK_SIZE); i++) {
-        if (bread(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((inode_t *) inodes + i * BLOCK_SIZE)) < 0) {
+    for (i = 0; i < ceilOfDivision(sblock.numInodes * sizeof(inode_t), BLOCK_SIZE); i++) {
+        if (bread(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((char *) inodes + i * BLOCK_SIZE)) < 0) {
             fprintf(stderr, "Error in mountFS: can't read iNodes\n");
             return -1;
         }
@@ -163,9 +168,9 @@ int unmountFS(void)
         }
     }
 
-    /* Call sync() to write metadata on file */
-    if (sync() < 0) {
-        fprintf(stderr, "Error in unmountFS: error while syncing metadata\n");
+    /* Call syncFS() to write metadata on file */
+    if (syncFS() < 0) {
+        fprintf(stderr, "Error in unmountFS: error while syncFSing metadata\n");
         return -1;
     }
 
@@ -185,7 +190,7 @@ int createFile(char *path)
 
 	int b_id, inode_id;
 
-	char * rel_path = dirname(path); // Here we get the path of the file without the file name
+	//char * rel_path = dirname(path); // Here we get the path of the file without the file name
 	char * filename =  basename(path); // Here we get the name of the file from the path
 
 	inode_id = namei(filename);
@@ -233,7 +238,7 @@ int removeFile(char *path)
 
 	int inode_id;
 
-	char * rel_path = dirname(path); // Here we get the path of the file without the file name
+	//char * rel_path = dirname(path); // Here we get the path of the file without the file name
 	char * filename =  basename(path); // Here we get the name of the file from the path
 
 	inode_id = namei(filename);
@@ -253,7 +258,7 @@ int removeFile(char *path)
 		return -2;
 	}
 
-	free(inodes[inode_id].dataBlockPos); // Free data block
+	bfree(inodes[inode_id].dataBlockPos); // Free data block
 	memset(&(inodes[inode_id]), 0, sizeof(inode_t));
 	ifree(inode_id);
 
@@ -274,7 +279,7 @@ int openFile(char *path){
 
 	int inode_id;
 
-	char * rel_path = dirname(path); // Here we get the path of the file without the file name
+	//char * rel_path = dirname(path); // Here we get the path of the file without the file name
 	char * filename =  basename(path); // Here we get the name of the file from the path
 
 	inode_id = namei(filename);
@@ -692,10 +697,10 @@ int bmap(int inode_id, int offset) {
  * @brief   Writes the metadata in memory to the disk image
  * @return  0 if success, -1 if error
  */
-int sync(void) {
+int syncFS(void) {
     int i;
     /* Write super into disk */
-    bwrite(DEVICE_IMAGE, 0, &sblock);
+    bwrite(DEVICE_IMAGE, 0, (char *) &sblock);
 
     /* Write inode map to disk */
     for (i = 0; i < sblock.numINodeMapBlocks; i++) {
@@ -708,8 +713,8 @@ int sync(void) {
     }
 
     /* Write inodes to disk */
-    for (i = 0; i < ceil(sblock.numInodes * sizeof(inode_t) / BLOCK_SIZE); i++) {
-        bwrite(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((inode_t *) inodes + i * BLOCK_SIZE));
+    for (i = 0; i < ceilOfDivision(sblock.numInodes * sizeof(inode_t), BLOCK_SIZE); i++) {
+        bwrite(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((char *) inodes + i * BLOCK_SIZE));
     }
 
     return 0;
