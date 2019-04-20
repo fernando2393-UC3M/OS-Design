@@ -178,6 +178,11 @@ int unmountFS(void)
  */
 int createFile(char *path)
 {
+	if (path == NULL) {
+        fprintf(stderr, "Error createFile\n");
+        return -1;
+	}
+
 	int b_id, inode_id;
 
 	char * rel_path = dirname(path); // Here we get the path of the file without the file name
@@ -185,7 +190,7 @@ int createFile(char *path)
 
 	inode_id = namei(filename);
 
-	if (inode_id != -1) {
+	if (inode_id >= 0) {
 		fprintf(stderr, "Error in createFile: file already exists\n");
         return -1;
 	}
@@ -207,8 +212,9 @@ int createFile(char *path)
 	inodes[inode_id].type = TYPE_FILE; // Inode points to a file
 	strcpy(inodes[inode_id].name, filename);
 	inodes[inode_id].dataBlockPos = b_id;
+	inodes[inode_id].size = 0;
 	inodes_x[inode_id].position = 0;
-	inodes_x[inode_id].opened = 1;	
+	inodes_x[inode_id].opened = 1;
 
 	return 0;
 }
@@ -220,6 +226,11 @@ int createFile(char *path)
 int removeFile(char *path)
 {
 
+	if (path == NULL) {
+        fprintf(stderr, "Error removeFile\n");
+        return -1;
+	}
+
 	int inode_id;
 
 	char * rel_path = dirname(path); // Here we get the path of the file without the file name
@@ -228,8 +239,18 @@ int removeFile(char *path)
 	inode_id = namei(filename);
 
 	if (inode_id < 0){
-		fprintf(stderr, "Error in createFile: file does not exist\n");
+		fprintf(stderr, "Error in removeFile: file does not exist\n");
         return -1;
+	}
+
+	if (inodes[inode_id].type != TYPE_FILE) {
+		fprintf(stderr, "Error removeFile: not a file\n");
+		return -2;
+	}
+
+	if (inodes_x[inode_id].opened != 0) {
+		fprintf(stderr, "Error removeFile: file is opened!\n");
+		return -2;
 	}
 
 	free(inodes[inode_id].dataBlockPos); // Free data block
@@ -246,23 +267,38 @@ int removeFile(char *path)
  */
 int openFile(char *path){
 
+	if (path == NULL) {
+        fprintf(stderr, "Error openFile\n");
+        return -1;
+	}
+
 	int inode_id;
 
 	char * rel_path = dirname(path); // Here we get the path of the file without the file name
-	char * filename =  basename(path); // Here we get the name of the file from the path 
+	char * filename =  basename(path); // Here we get the name of the file from the path
 
 	inode_id = namei(filename);
 
 	if(inode_id < 0) {
-		fprintf(stderr, "Error in createFile: file does not exist\n");
+		fprintf(stderr, "Error in openFile: file does not exist\n");
         return -1;
 	}
 
+	if (inodes[inode_id].type != TYPE_FILE) {
+		fprintf(stderr, "Error openFile: not a file\n");
+		return -2;
+	}
+
+	if (inodes_x[inode_id].opened != 0) {
+		fprintf(stderr, "Error openFile: file is already opened!\n");
+		return -2;
+	}
+
 	inodes_x[inode_id].position = 0;
-	inodes_x[inode_id].position = 1;
+	inodes_x[inode_id].opened = 1;
 
 	return inode_id;
-	
+
 }
 
 /*
@@ -448,6 +484,7 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 	memmove(b+inodes_x[fileDescriptor].position, buffer, numBytes);
 	bwrite(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b);
 
+	inodes[fileDescriptor].size += numBytes;
 	inodes_x[fileDescriptor].position += numBytes;
 
 	return numBytes;
@@ -616,10 +653,10 @@ int bfree(int block_id) {
  */
 int namei(char *fname) {
 
-   /* if (path == NULL) {
+	if (fname == NULL) {
         fprintf(stderr, "Error namei\n");
         return -1;
-    } */
+	}
 
 	int i;
     /* seek for the inode with name <fname> */
