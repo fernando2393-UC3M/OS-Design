@@ -219,7 +219,7 @@ int createFile(char *path)
 	inodes[inode_id].dataBlockPos = b_id;
 	inodes[inode_id].size = 0;
 	inodes_x[inode_id].position = 0;
-	inodes_x[inode_id].opened = 1;
+	inodes_x[inode_id].opened = 0;
 
 	return 0;
 }
@@ -293,11 +293,12 @@ int openFile(char *path){
 		fprintf(stderr, "Error openFile: not a file\n");
 		return -2;
 	}
-
+	
 	if (inodes_x[inode_id].opened != 0) {
 		fprintf(stderr, "Error openFile: file is already opened!\n");
 		return -2;
 	}
+	
 
 	inodes_x[inode_id].position = 0;
 	inodes_x[inode_id].opened = 1;
