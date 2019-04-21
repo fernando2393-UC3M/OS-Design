@@ -14,8 +14,27 @@
 #include <string.h>
 #include <libgen.h>
 
+/*
+ * @brief   Implementation of a math.ceil funcion of a division
+ * @return  int with the result of applying ceil(a/b)
+ */
 int ceilOfDivision (long a, long b) {
 	return (a / b) + ((a % b) != 0);
+}
+
+/*
+ * @brief   Counts the number of entries that a specific inode has
+ * @return  int with the number of entries that a specific inode has
+ */
+int countNumberEntries (int inode_id){
+	int count = 0;
+	
+    for (i = 0; i < sblock.numInodes; i++) {
+        if (inodes[i].father == inode_id) {
+            count ++;
+        }
+    }
+	return count;
 }
 
 /*
@@ -38,7 +57,7 @@ char * getRootDirectory(char * path) {
  * @brief   Gets the next directory from root
  * @return  char * with the next directory from root.
  */
-char * getRelDirectory(char * path, char * root) {
+char * getRealDirectory(char * path, char * root) {
 	char * oldDir = malloc(sizeof(path));
 	char * newPath = strdup(path);
 
@@ -55,7 +74,7 @@ char * getRelDirectory(char * path, char * root) {
  * @return  inode_id of file, -1 if it does not exist, -2 if error.
  */
 int getFile(char * filename){
-	
+
 	int inode_id = namei(filename);
 
 	if (inode_id < 0)
@@ -82,7 +101,7 @@ int getFile(char * filename){
 
 /*
  * @brief   Reaches and gets file through a path with directories
- * @return  inode_id of file, -1 if the directory does not exist, -2 if name not of a directory, 
+ * @return  inode_id of file, -1 if the directory does not exist, -2 if name not of a directory,
  * 			-3 if file does not exist and directory full, -4 if it does not exist but could be created
  */
 int getFileFromDir(char * rootpath, char * filename, char * path){
@@ -104,8 +123,8 @@ int getFileFromDir(char * rootpath, char * filename, char * path){
 		// Get elements inside directory and compare with the new path
 
 		char * content = malloc(MAX_FILE_SIZE); // Buffer for storing directory content
-		
-		bread(DEVICE_IMAGE, 1 + sblock.numINodeMapBlocks + 
+
+		bread(DEVICE_IMAGE, 1 + sblock.numINodeMapBlocks +
 		sblock.numDataMapBlocks + inode_id, content); // Reading content of directory
 
 		// Check if the file is contained in the directory
@@ -124,7 +143,7 @@ int getFileFromDir(char * rootpath, char * filename, char * path){
 
 		// No match, get next directory in path
 
-		char * newpath = strdup(getRelDirectory(path, rootpath)); // Get next directory
+		char * newpath = strdup(getRealDirectory(path, rootpath)); // Get next directory
 
 		if (!strcmp(newpath, "")) { // End of path found
 

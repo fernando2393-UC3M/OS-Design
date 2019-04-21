@@ -6,8 +6,42 @@
  * @date	01/03/2017
  */
 
-
+ /*
+  * @brief   Implementation of a math.ceil funcion of a division
+  * @return  int with the result of applying ceil(a/b)
+  */
 int ceilOfDivision (long a, long b);
+
+/*
+ * @brief   Counts the number of entries that a specific inode has
+ * @return  int with the number of entries that a specific inode has
+ */
+int countNumberEntries (int inode_id);
+
+/*
+ * @brief   Gets the root directory of a path
+ * @return  char * with the root directory.
+ */
+char * getRootDirectory(char * path);
+
+/*
+ * @brief   Gets the next directory from root
+ * @return  char * with the next directory from root.
+ */
+char * getRealDirectory(char * path, char * root);
+
+/*
+ * @brief   Gets file from current directory
+ * @return  inode_id of file, -1 if it does not exist, -2 if error.
+ */
+int getFile(char * filename);
+
+/*
+ * @brief   Reaches and gets file through a path with directories
+ * @return  inode_id of file, -1 if the directory does not exist, -2 if name not of a directory,
+ * 			-3 if file does not exist and directory full, -4 if it does not exist but could be created
+ */
+int getFileFromDir(char * rootpath, char * filename, char * path);
 
  /*
   * @brief   Search for a free inode and set its value in inodes map to 1
