@@ -598,7 +598,7 @@ int mkDir(char *path)
 	inodes[inode_id].dataBlockPos = b_id;
 	inodes[inode_id].size = MAX_FILE_SIZE;
 
-	return -2;
+	return 0;
 }
 
 /*
@@ -607,7 +607,50 @@ int mkDir(char *path)
  */
 int rmDir(char *path)
 {
-	return -2;
+
+	if (path == NULL) {
+        fprintf(stderr, "Error rmDir\n");
+        return -1;
+	}
+
+	int inode_id = namei(path);
+
+	if (inode_id < 0){
+		fprintf(stderr, "Error in rmDir: directory does not exist\n");
+        return -1;
+	}
+
+	if (inodes[inode_id].type != TYPE_FOLDER) {
+		fprintf(stderr, "Error rmDir: not a directory\n");
+		return -2;
+	}
+
+	/* Remove the directory and all its content */
+
+	// Check all inodes until root --> If path is father --> remove
+
+	for (int i = 0; i < MAX_FILES; i++) { // Iterate over all inodes
+		
+		int aux_inode_id = i;
+
+		while (aux_inode_id != -1) {
+			if (inodes[aux_inode_id].father == inode_id) { // If father is directory to remove --> remove file
+				removeFile(inodes[aux_inode_id].name);
+			}
+			else {
+				aux_inode_id = inodes[aux_inode_id].father; // Else, go one level up in path
+			}
+		}
+
+	}
+
+	// Once all inodes have been checked remove directory
+
+	bfree(inodes[inode_id].dataBlockPos); // Free data block
+	memset(&(inodes[inode_id]), 0, sizeof(inode_t));
+	ifree(inode_id);
+
+	return 0;
 }
 
 /*
