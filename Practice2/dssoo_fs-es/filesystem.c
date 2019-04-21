@@ -569,6 +569,14 @@ int mkDir(char *path)
 		return -2;
 	}
 
+	b_id = alloc();
+
+	if (b_id < 0)
+	{
+		fprintf(stderr, "Error in createFile: no data blocks available\n");
+		return -2;
+	}
+
 	/* Check if path includes a directory */
 
 	if (strcmp(getFather(path), "/") != 0) {
