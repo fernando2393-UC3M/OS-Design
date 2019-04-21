@@ -59,6 +59,7 @@ char *b_map;  /* Map of used dataBlocks */
 struct {
   int position; /* Position of the file seek pointer */
   int opened; /* 0 if file is closed, 1 if opened */
+  int num_contents; /* Number of elements inside a directory, only used in directories */
 } inodes_x[MAX_FILES];
 
 typedef struct {

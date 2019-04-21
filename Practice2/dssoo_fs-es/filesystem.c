@@ -83,13 +83,9 @@ int getFile(char * filename){
 /*
  * @brief   Reaches and gets file through a path with directories
  * @return  inode_id of file, -1 if the directory does not exist, -2 if name not of a directory, 
- * 			-3 if file does not exist
+ * 			-3 if file does not exist and directory full, -4 if it does not exist but could be created
  */
 int getFileFromDir(char * rootpath, char * filename, char * path){
-
-		if (!strcmp(rootpath, "")) { // End of path reached --> file not found
-			return -3;
-		}
 
 		int inode_id = namei(rootpath); // Get id of directory
 
@@ -130,10 +126,25 @@ int getFileFromDir(char * rootpath, char * filename, char * path){
 
 		char * newpath = strdup(getRelDirectory(path, rootpath)); // Get next directory
 
-		getFileFromDir(newpath, filename, path); // Recursive call in next level of directories
+		if (!strcmp(newpath, "")) { // End of path found
+
+			// Check if the file could be created
+
+			if (inodes_x[inode_id].num_contents < MAX_ENTRIES) { // File does not exist but could be created
+				return -4;
+			}
+			else { // File does not exist and directory is full
+				return -3;
+			}
+		}
+
+		else {
+
+			getFileFromDir(newpath, filename, path); // Recursive call in next level of directories
+
+		}
 
 		return -3;
-
 }
 
 /*
@@ -323,6 +334,13 @@ int createFile(char *path)
         	return -1;
 		}
 
+		else if (inode_id == -4) { // File does not exist and could be created
+
+		}
+
+		else { // Error due to something else
+
+		}
 	}
 
 	else {
