@@ -254,7 +254,7 @@ int createFile(char *path)
 
 			int father_inode_id = namei(getFather(path));
 
-			if (inode_id < 0)
+			if (father_inode_id < 0)
 			{
 				fprintf(stderr, "Error in createFile: directory does not exist\n");
 				return -1;
