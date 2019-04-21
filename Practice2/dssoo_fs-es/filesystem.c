@@ -222,8 +222,6 @@ int createFile(char *path)
 
 	int b_id;
 
-	// First look for the directory
-
 	int inode_id = namei(path);
 
 	if (inode_id >= 0)
@@ -257,12 +255,12 @@ int createFile(char *path)
 			if (father_inode_id < 0)
 			{
 				fprintf(stderr, "Error in createFile: directory does not exist\n");
-				return -1;
+				return -2;
 			}
 
 			if (countNumberEntries(father_inode_id) == MAX_ENTRIES) {
-				fprintf(stderr, "Error in createFile: directory does not exist\n");
-				return -1;
+				fprintf(stderr, "Error in createFile: directory is full\n");
+				return -2;
 			}
 
 			inodes[inode_id].father = father_inode_id; // Inode_id of the father inode
@@ -356,78 +354,6 @@ int openFile(char *path){
 	return inode_id;
 
 }
-
-/*
- * @brief	Opens an existing file.
- * @return	The file descriptor if possible, -1 if file does not exist, -2 in case of error..
- */
-
-/*
-int openFile(char *path)
-{
-
-	int i, j, isFound;
-	char *found, *prevFound;
-
-
-	while( (found = strsep(&path,"/")) != NULL ) {
-		isFound = 0;
-
-		if (prevFound == NULL) {
-			prevFound = found;
-			continue;
-		}
-
-		for (i = 0; i < sblock.numInodes; i++) {
-			if (!isFound && !strcmp(inodes[i].name, prevFound)) {
-				if (inodes[i].type == TYPE_FOLDER){
-					for (j = 0; j < MAX_ENTRIES; j++) {
-						if (!isFound && !strcmp(inodes[inodes[i].entradas[j]].name, found)) {
-							prevFound = found;
-							isFound = 1;
-						}
-					}
-				}
-			}
-		}
-
-		if (!isFound) {
-			fprintf(stderr, "not found!!\n");
-			return -1;
-		}
-	}
-
-	int inode_id;
-
-	*/
-
-	/* Search for the inode of the file */
-
-	/*
-	inode_id = namei(prevFound);
-	if (inode_id < 0) {
-		fprintf(stderr, "Error in openFile: file %s not found\n", path);
-		return -1;
-	}
-
-	if (inodes[inode_id].type != TYPE_FILE) {
-		fprintf(stderr, "Error openFile: not a file\n");
-		return -2;
-	}
-
-	if (inodes_x[inode_id].opened != 0) {
-		fprintf(stderr, "Error openFile: file is already opened!\n");
-		return -2;
-	}
-
-	*/
-
-
-	// inodes_x[inode_id].position = 0; /* Set seek descriptor to begin */
-	// inodes_x[inode_id].opened = 1;  /* Set file state to open */
-
-	// return inode_id;
-// }
 
 /*
  * @brief	Closes a file.
@@ -619,6 +545,59 @@ int lseekFile(int fileDescriptor, long offset, int whence)
  */
 int mkDir(char *path)
 {
+
+	if (path == NULL) {
+        fprintf(stderr, "Error mkDir\n");
+        return -1;
+	}
+
+	int b_id;
+
+	int inode_id = namei(path);
+
+	if (inode_id >= 0)
+	{
+		fprintf(stderr, "Error in mkDir: directory already exists\n");
+		return -1;
+	}
+
+	inode_id = ialloc(); // Returns id of available inode
+
+	if (inode_id < 0)
+	{
+		fprintf(stderr, "Error in mkDir: no inodes available\n");
+		return -2;
+	}
+
+	/* Check if path includes a directory */
+
+	if (strcmp(getFather(path), "/") != 0) {
+
+			int father_inode_id = namei(getFather(path));
+
+			if (father_inode_id < 0)
+			{
+				fprintf(stderr, "Error in mkDir: directory does not exist\n");
+				return -2;
+			}
+
+			if (countNumberEntries(father_inode_id) == MAX_ENTRIES) {
+				fprintf(stderr, "Error in createFile: directory is full\n");
+				return -2;
+			}
+
+			inodes[inode_id].father = father_inode_id; // Inode_id of the father inode
+	}
+
+	else {
+		inodes[inode_id].father = -1; // Inode_id of root
+	}
+
+	inodes[inode_id].type = TYPE_FOLDER; // Inode points to a folder
+	strcpy(inodes[inode_id].name, path);
+	inodes[inode_id].dataBlockPos = b_id;
+	inodes[inode_id].size = MAX_FILE_SIZE;
+
 	return -2;
 }
 
