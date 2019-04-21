@@ -216,7 +216,7 @@ int createFile(char *path)
 {
 	if (path == NULL)
 	{
-		fprintf(stderr, "Error createFile\n");
+		fprintf(stderr, "Error in createFile\n");
 		return -2;
 	}
 
@@ -288,7 +288,7 @@ int removeFile(char *path)
 {
 
 	if (path == NULL) {
-        fprintf(stderr, "Error removeFile\n");
+        fprintf(stderr, "Error in removeFile\n");
         return -1;
 	}
 
@@ -300,12 +300,12 @@ int removeFile(char *path)
 	}
 
 	if (inodes[inode_id].type != TYPE_FILE) {
-		fprintf(stderr, "Error removeFile: not a file\n");
+		fprintf(stderr, "Error in removeFile: not a file\n");
 		return -2;
 	}
 
 	if (inodes_x[inode_id].opened != 0) {
-		fprintf(stderr, "Error removeFile: file is opened!\n");
+		fprintf(stderr, "Error in removeFile: file is opened!\n");
 		return -2;
 	}
 
@@ -324,7 +324,7 @@ int removeFile(char *path)
 int openFile(char *path){
 
 	if (path == NULL) {
-        fprintf(stderr, "Error openFile\n");
+        fprintf(stderr, "Error in openFile\n");
         return -1;
 	}
 
@@ -547,7 +547,7 @@ int mkDir(char *path)
 {
 
 	if (path == NULL) {
-        fprintf(stderr, "Error mkDir\n");
+        fprintf(stderr, "Error in mkDir\n");
         return -1;
 	}
 
@@ -582,7 +582,7 @@ int mkDir(char *path)
 			}
 
 			if (countNumberEntries(father_inode_id) == MAX_ENTRIES) {
-				fprintf(stderr, "Error in createFile: directory is full\n");
+				fprintf(stderr, "Error in mkDir: directory is full\n");
 				return -2;
 			}
 
@@ -609,8 +609,8 @@ int rmDir(char *path)
 {
 
 	if (path == NULL) {
-        fprintf(stderr, "Error rmDir\n");
-        return -1;
+        fprintf(stderr, "Error in rmDir\n");
+        return -2;
 	}
 
 	int inode_id = namei(path);
@@ -621,7 +621,7 @@ int rmDir(char *path)
 	}
 
 	if (inodes[inode_id].type != TYPE_FOLDER) {
-		fprintf(stderr, "Error rmDir: not a directory\n");
+		fprintf(stderr, "Error in rmDir: not a directory\n");
 		return -2;
 	}
 
@@ -659,7 +659,39 @@ int rmDir(char *path)
  */
 int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 {
-	return -2;
+
+	if (path == NULL) {
+        fprintf(stderr, "Error in lsDir\n");
+        return -2;
+	}
+
+	int inode_id = namei(path);
+
+	if (inode_id < 0){
+		fprintf(stderr, "Error in lsDir: directory does not exist\n");
+        return -1;
+	}
+
+	if (inodes[inode_id].type != TYPE_FOLDER) {
+		fprintf(stderr, "Error in lsDir: not a directory\n");
+		return -2;
+	}
+
+	for (int i = 0; i < MAX_ENTRIES; i++) { // Fill all content with -1 by default
+		inodesDir[i] = -1;
+	}
+
+	int counter = 0;
+
+	for (int i = 0; i < MAX_FILES; i++) {
+		if (inodes[i].father == inode_id) {
+			inodesDir[counter] = i;									// Add to the first free position inode
+			strcpy(namesDir[counter], basename(inodes[i].name));	// Get name of element and copy to first free position
+			counter++;
+		}
+	}	
+
+	return countNumberEntries(inode_id);
 }
 
 
