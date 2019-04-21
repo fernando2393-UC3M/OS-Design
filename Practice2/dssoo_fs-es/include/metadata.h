@@ -41,7 +41,7 @@ typedef struct {
 } superblock_t;
 
 typedef struct {
-  char name [MAX_FILE_NAME + 1]; // Due to the final character \0
+  char name [MAX_PATH_LEN_FILE + 1]; // Due to the final character \0
   unsigned int dataBlockPos; // Position of the datablock
   unsigned int type;
   unsigned int size;

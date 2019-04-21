@@ -264,6 +264,12 @@ int createFile(char *path)
 				fprintf(stderr, "Error in createFile: directory does not exist\n");
 				return -1;
 			}
+
+			inodes[inode_id].father = father_inode_id; // Inode_id of the father inode
+	}
+
+	else {
+		inodes[inode_id].father = -1; // Inode_id of root
 	}
 
 	inodes[inode_id].type = TYPE_FILE; // Inode points to a file
