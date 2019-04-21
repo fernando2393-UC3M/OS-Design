@@ -27,8 +27,8 @@ int ceilOfDivision (long a, long b) {
  * @return  int with the number of entries that a specific inode has
  */
 int countNumberEntries (int inode_id){
-	int count = 0;
-	
+	int i, count = 0;
+
     for (i = 0; i < sblock.numInodes; i++) {
         if (inodes[i].father == inode_id) {
             count ++;
@@ -149,7 +149,7 @@ int getFileFromDir(char * rootpath, char * filename, char * path){
 
 			// Check if the file could be created
 
-			if (inodes_x[inode_id].num_contents < MAX_ENTRIES) { // File does not exist but could be created
+			if (countNumberEntries (inode_id) < MAX_ENTRIES) { // File does not exist but could be created
 				return -4;
 			}
 			else { // File does not exist and directory is full
@@ -174,12 +174,12 @@ int mkFS(long deviceSize)
 {
 
 	if (deviceSize < (50 * pow(2,10))){ // Minimum size is 50 KiB
-		perror("Error: Device size too small!\n");
+		fprintf(stderr, "Error in mkFS: device size too small\n");
 		return -1;
 	}
 
 	if (deviceSize > (10 * pow(2,20))){ // Maximum size is 10 MiB
-		perror("Error: Device size too big!\n");
+		fprintf(stderr, "Error in mkFS: device size too big\n");
 		return -1;
 	}
 
@@ -188,14 +188,14 @@ int mkFS(long deviceSize)
 	/* Open disk image for read and write */
     fd = open(DEVICE_IMAGE, O_RDWR);
     if (fd < 0) {
-        perror("Error while opening 'disk.dat'");
+        fprintf(stderr, "Error in mkFS: while opening %s\n", DEVICE_IMAGE);
         return -1;
     }
     unsigned long diskSize = (unsigned long) lseek(fd, 0, SEEK_END);
     close(fd);
 
     if (diskSize < deviceSize) {
-        fprintf(stderr, "Error in mkFS: Disk too small\n");
+        fprintf(stderr, "Error in mkFS: disk is too small\n");
         return -1;
     }
 
@@ -216,7 +216,7 @@ int mkFS(long deviceSize)
 	int dataBlocks = totalBlocks - superblocks - inodeMapBlocks - dataMapBlocks - inodeBlocks;
 
 	if (dataBlocks < 0) {
-		perror("Error: No enough space available. Try with a bigger size image!\n");
+		fprintf(stderr, "Error in mkFS: not enough space available. Try with a bigger size image!\n");
 		return -1;
 	}
 
@@ -251,9 +251,9 @@ int mkFS(long deviceSize)
         memset(&(inodes[i]), 0, sizeof(inode_t));
     }
 
-    /* Call syncFS() to write all the metadata created in the disk */
+    /* Call syncFS() to write data in memory to the disk image */
     if (syncFS() < 0) {
-        perror("mkFS failed: Error when writing metadata\n");
+        fprintf(stderr, "Error in mkFS: failed to write data to the disk image\n");
         return -1;
     }
 
@@ -316,9 +316,9 @@ int unmountFS(void)
         }
     }
 
-    /* Call syncFS() to write metadata on file */
+    /* Call syncFS() to write data in memory to the disk image */
     if (syncFS() < 0) {
-        fprintf(stderr, "Error in unmountFS: error while syncFSing metadata\n");
+        fprintf(stderr, "Error in unmountFS: failed to write data to the disk image\n");
         return -1;
     }
 
@@ -608,16 +608,23 @@ int readFile(int fileDescriptor, void *buffer, int numBytes)
 		return -1;
 	}
 
-	/* In this case, the seek pointer is located at EOF, so no bytes
-     * can be read */
+	/* In this case, the seek pointer is located at EOF, so no bytes can be read */
     if (numBytes == 0) {
         return 0;
     }
 
 	b_id = bmap(fileDescriptor, inodes_x[fileDescriptor].position);
-	// Poner el error de bmap!!!!!!!!!!!
 
-	bread(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b);
+	if (b_id < 0) {
+		fprintf(stderr, "Error in readFile: error coming from bmap, could not allocate a data block\n");
+		return -1;
+	}
+
+	if (bread(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b) < 0) {
+		fprintf(stderr, "Error in readFile: can't read data block\n");
+		return -1;
+	}
+
 	memmove(buffer, b+inodes_x[fileDescriptor].position, numBytes);
 
 	inodes_x[fileDescriptor].position += numBytes;
@@ -664,13 +671,24 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
     }
 
 	b_id = bmap(fileDescriptor, inodes_x[fileDescriptor].position);
-	// Poner el error de bmap!!!!!!!!!!!
 
-	bread(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b);
+	if (b_id < 0) {
+		fprintf(stderr, "Error in writeFile: error coming from bmap, could not allocate a data block\n");
+		return -1;
+	}
+
+	if (bread(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b) < 0) {
+		fprintf(stderr, "Error in writeFile: can't read data block\n");
+		return -1;
+	}
+
 	memmove(b+inodes_x[fileDescriptor].position, buffer, numBytes);
-	bwrite(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b);
 
-	// inodes[fileDescriptor].size += numBytes;
+	if (bwrite(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b) < 0) {
+		fprintf(stderr, "Error in writeFile: can't write data block\n");
+		return -1;
+	}
+
 	inodes_x[fileDescriptor].position += numBytes;
 
 	return numBytes;
@@ -721,7 +739,7 @@ int lseekFile(int fileDescriptor, long offset, int whence)
 		return 0;
 	}
 
-	fprintf(stderr, "Error in lseekFile: 1!!!\n");
+	fprintf(stderr, "Error in lseekFile: did not provide a valid value for whence\n");
 	return -1;
 }
 
@@ -770,7 +788,7 @@ int ialloc(void) {
             return i;
         }
     }
-    fprintf(stderr, "Error: maximum number of files reached\n");
+
     return -1;
 }
 
@@ -790,12 +808,14 @@ int alloc(void) {
 
             /* default values for the block */
             memset(buffer, 0, BLOCK_SIZE);
-            bwrite(DEVICE_IMAGE, i + sblock.firstDataBlock, buffer);
+            if (bwrite(DEVICE_IMAGE, i + sblock.firstDataBlock, buffer) < 0) {
+				return -1;
+			};
             /* it returns the block id */
             return i;
         }
     }
-    fprintf(stderr, "Error alloc!!\n");
+
     return -1;
 }
 
@@ -806,7 +826,6 @@ int alloc(void) {
 int ifree(int inode_id) {
     /* to check the inode_id vality */
     if (inode_id >= sblock.numInodes || inode_id < 0) {
-    	fprintf(stderr, "Error ifree!!\n");
         return -1;
     }
 
@@ -823,7 +842,6 @@ int ifree(int inode_id) {
 int bfree(int block_id) {
     /* to check the inode_id vality */
     if (block_id >= sblock.numDataBlocks || block_id < 0) {
-    	fprintf(stderr, "Error bfree!!\n");
         return -1;
     }
 
@@ -840,7 +858,6 @@ int bfree(int block_id) {
 int namei(char *fname) {
 
 	if (fname == NULL) {
-        fprintf(stderr, "Error namei\n");
         return -1;
 	}
 
@@ -852,7 +869,6 @@ int namei(char *fname) {
         }
     }
 
-	fprintf(stderr, "not found!!\n");
     return -1;
 }
 
@@ -863,39 +879,47 @@ int namei(char *fname) {
 int bmap(int inode_id, int offset) {
 	/* to check the inode_id vality */
     if (inode_id >= sblock.numInodes || inode_id < 0) {
-    	fprintf(stderr, "Error bmap!!\n");
         return -1;
     }
 
-	if (offset < BLOCK_SIZE)
+	if (offset < BLOCK_SIZE) {
 		return inodes[inode_id].dataBlockPos;
+	}
 
-	fprintf(stderr, "Error bmap!!\n");
 	return -1;
 }
 
 /*
- * @brief   Writes the metadata in memory to the disk image
+ * @brief   Writes data in memory to the disk image
  * @return  0 if success, -1 if error
  */
 int syncFS(void) {
     int i;
-    /* Write super into disk */
-    bwrite(DEVICE_IMAGE, 0, (char *) &sblock);
+
+    /* Write superblock into disk */
+    if (bwrite(DEVICE_IMAGE, 0, (char *) &sblock) < 0) {
+		return -1;
+	}
 
     /* Write inode map to disk */
     for (i = 0; i < sblock.numINodeMapBlocks; i++) {
-        bwrite(DEVICE_IMAGE, 1 + i, ((char *) i_map + i * BLOCK_SIZE));
+        if (bwrite(DEVICE_IMAGE, 1 + i, ((char *) i_map + i * BLOCK_SIZE)) < 0) {
+			return -1;
+		}
     }
 
     /* Write block map to disk */
     for (i = 0; i < sblock.numDataMapBlocks; i++) {
-        bwrite(DEVICE_IMAGE, 1 + i + sblock.numINodeMapBlocks, ((char *) b_map + i * BLOCK_SIZE));
+        if (bwrite(DEVICE_IMAGE, 1 + i + sblock.numINodeMapBlocks, ((char *) b_map + i * BLOCK_SIZE)) < 0) {
+			return -1;
+		}
     }
 
     /* Write inodes to disk */
     for (i = 0; i < ceilOfDivision(sblock.numInodes * sizeof(inode_t), BLOCK_SIZE); i++) {
-        bwrite(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((char *) inodes + i * BLOCK_SIZE));
+        if (bwrite(DEVICE_IMAGE, i + sblock.firstInodeBlock, ((char *) inodes + i * BLOCK_SIZE)) < 0) {
+			return -1;
+		}
     }
 
     return 0;
