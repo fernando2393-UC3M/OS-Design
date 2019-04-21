@@ -43,53 +43,11 @@ char * getRelDirectory(char * path, char * root) {
 	char * newPath = strdup(path);
 
 	while(strcmp(newPath, root) != 0) {
-		strcpy(oldDir, getFileName(newPath));
-		strcpy(newPath, getDirectory(newPath));
+		strcpy(oldDir, basename(newPath));
+		strcpy(newPath, dirname(newPath));
 	}
 
 	return oldDir;
-}
-
-
-/*
- * @brief   Reaches and gets file through a path with directories
- * @return  inode_id of file.
- */
-int getFileFromDir(char * rootpath, char * filename, char * path){
-
-		int inode_id = namei(rootpath); // Get id of directory
-
-		if(inode_id < 0) {
-		fprintf(stderr, "Error in openFile: directory does not exist\n");
-        return -1;
-		}
-
-		if (inodes[inode_id].type != TYPE_FOLDER) {
-		fprintf(stderr, "Error openFile: not a directory\n");
-		return -2;
-		}
-
-		// Here it is sure the file is a directory which exists
-
-		// Get elements inside directory and compare with the new path
-
-		dir_t directory; // Get directory pointed by inode (NEEDS TO COMPLETE)
-
-		// Check if the file is contained in the directory
-
-		for (int i = 0; i < MAX_ENTRIES; i++) {
-			if(strcmp(filename, directory.contents[i])){ // Check each element inside the directory
-				inode_id = getFile(filename); // If names match, execute getFile
-				return inode_id;
-			}
-		}
-
-		// No match, get next directory in path
-
-		char * newpath = strdup(getRelDirectory(path, rootpath)); // Get next directory
-
-		getFileFromDir(newpath, filename, path); // Recursive call in next level of directories
-
 }
 
 /*
@@ -119,6 +77,62 @@ int getFile(char * filename){
 		}
 
 		return inode_id;
+
+}
+
+/*
+ * @brief   Reaches and gets file through a path with directories
+ * @return  inode_id of file, -1 if the directory does not exist, -2 if name not of a directory, 
+ * 			-3 if file does not exist
+ */
+int getFileFromDir(char * rootpath, char * filename, char * path){
+
+		if (!strcmp(rootpath, "")) { // End of path reached --> file not found
+			return -3;
+		}
+
+		int inode_id = namei(rootpath); // Get id of directory
+
+		if(inode_id < 0) {
+			fprintf(stderr, "Error in openFile: directory does not exist\n");
+        	return -1;
+		}
+
+		if (inodes[inode_id].type != TYPE_FOLDER) {
+			fprintf(stderr, "Error openFile: not a directory\n");
+			return -2;
+		}
+
+		// Here it is sure the file is a directory which exists
+
+		// Get elements inside directory and compare with the new path
+
+		char * content = malloc(MAX_FILE_SIZE); // Buffer for storing directory content
+		
+		bread(DEVICE_IMAGE, 1 + sblock.numINodeMapBlocks + 
+		sblock.numDataMapBlocks + inode_id, content); // Reading content of directory
+
+		// Check if the file is contained in the directory
+
+		char * file = malloc(MAX_FILE_NAME); // Buffer for storing each file contained by directory
+
+		for (int i = 0; i < MAX_ENTRIES; i++) {
+			memcpy(file, i * MAX_FILE_NAME + content, MAX_FILE_NAME);
+			if(strcmp(filename, file)){ // Check each element inside the directory
+				if (inodes[namei(file)].type == TYPE_FILE) { // Check that the element is a file
+					inode_id = getFile(filename); // If names match, execute getFile
+					return inode_id;
+				}
+			}
+		}
+
+		// No match, get next directory in path
+
+		char * newpath = strdup(getRelDirectory(path, rootpath)); // Get next directory
+
+		getFileFromDir(newpath, filename, path); // Recursive call in next level of directories
+
+		return -3;
 
 }
 
@@ -289,41 +303,61 @@ int createFile(char *path)
 {
 	if (path == NULL) {
         fprintf(stderr, "Error createFile\n");
-        return -1;
+        return -2;
 	}
 
 	int b_id, inode_id;
 
-	//char * rel_path = dirname(path); // Here we get the path of the file without the file name
+	char * rootpath = getRootDirectory(path); // Here we get the path of the file without the file name
 	char * filename =  basename(path); // Here we get the name of the file from the path
 
-	inode_id = namei(filename);
 
-	if (inode_id >= 0) {
-		fprintf(stderr, "Error in createFile: file already exists\n");
-        return -1;
+	// First look for the directory
+
+	if (strcmp(filename, rootpath) != 0) { // File is inside a directory
+
+		inode_id = getFileFromDir(rootpath, filename, path); // Get file inode through directories
+
+		if (inode_id >= 0) { // File exists
+			fprintf(stderr, "Error in createFile: file already exists\n");
+        	return -1;
+		}
+
 	}
 
-	inode_id = ialloc(); // Returns id of available inode
+	else {
 
-	if(inode_id < 0) {
-		fprintf(stderr, "Error in createFile: no inodes available\n");
-        return -2;
+		inode_id = namei(filename);
+
+		if (inode_id >= 0)
+		{
+			fprintf(stderr, "Error in createFile: file already exists\n");
+			return -1;
+		}
+
+		inode_id = ialloc(); // Returns id of available inode
+
+		if (inode_id < 0)
+		{
+			fprintf(stderr, "Error in createFile: no inodes available\n");
+			return -2;
+		}
+
+		b_id = alloc();
+
+		if (b_id < 0)
+		{
+			fprintf(stderr, "Error in createFile: no data blocks available\n");
+			return -2;
+		}
+
+		inodes[inode_id].type = TYPE_FILE; // Inode points to a file
+		strcpy(inodes[inode_id].name, filename);
+		inodes[inode_id].dataBlockPos = b_id;
+		inodes[inode_id].size = MAX_FILE_SIZE;
+		inodes_x[inode_id].position = 0;
+		inodes_x[inode_id].opened = 0;
 	}
-
-	b_id = alloc();
-
-	if (b_id < 0) {
-		fprintf(stderr, "Error in createFile: no data blocks available\n");
-        return -2;
-	}
-
-	inodes[inode_id].type = TYPE_FILE; // Inode points to a file
-	strcpy(inodes[inode_id].name, filename);
-	inodes[inode_id].dataBlockPos = b_id;
-	inodes[inode_id].size = MAX_FILE_SIZE;
-	inodes_x[inode_id].position = 0;
-	inodes_x[inode_id].opened = 0;
 
 	return 0;
 }
@@ -393,12 +427,15 @@ int openFile(char *path){
 
 		inode_id = getFileFromDir(rootpath, filename, path); // Get file inode through directories
 
+		if (inode_id < 0) {
+			return inode_id;
+		}
 	}
 
 	else
 	{
 
-		inode_id = getFile(inode_id);
+		inode_id = getFile(filename);
 
 		if (inode_id < 0) {
 			return inode_id;
