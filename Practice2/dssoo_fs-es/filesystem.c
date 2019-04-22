@@ -220,6 +220,30 @@ int createFile(char *path)
 		return -2;
 	}
 
+	if (strlen(basename(path)) > MAX_FILE_NAME) {
+		fprintf(stderr, "Error in createFile: directory name too big\n");
+        return -2;
+	}
+
+	int c = 0;
+	int slash = 0;
+
+	while (path[c] != '\0')
+	{
+
+		if (path[c] == '/')
+		{
+			slash++;
+			c++;
+		}
+		c++;
+	}
+
+	if (slash > 4) {
+		fprintf(stderr, "Error in createFile: too many directories in path\n");
+        return -2;
+	}
+
 	int b_id;
 
 	int inode_id = namei(path);
@@ -563,7 +587,31 @@ int mkDir(char *path)
         return -2;
 	}
 
-	int b_id;
+	if (strlen(basename(path)) > MAX_FILE_NAME) {
+		fprintf(stderr, "Error in mkDir: directory name too big\n");
+        return -2;
+	}
+
+	int c = 0;
+	int slash = 0;
+
+	while (path[c] != '\0')
+	{
+
+		if (path[c] == '/')
+		{
+			slash++;
+			c++;
+		}
+		c++;
+	}
+
+	if (slash > 4) {
+		fprintf(stderr, "Error in mkDir: too many directories in path\n");
+        return -2;
+	}
+
+	// int b_id;
 
 	int inode_id = namei(path);
 
@@ -654,11 +702,11 @@ int rmDir(char *path)
 	int i;
 	for (i = 0; i < sblock.numInodes; i++) { // Iterate over all inodes
 
-		if (inodes[aux_inode_id].father == inode_id) { // If father is directory to remove --> remove file
-			if (inodes[aux_inode_id].type == TYPE_FOLDER){
-				rmDir(inodes[aux_inode_id].name);
+		if (inodes[i].father == inode_id) { // If father is directory to remove --> remove file
+			if (inodes[i].type == TYPE_FOLDER){
+				rmDir(inodes[i].name);
 			} else {
-				removeFile(inodes[aux_inode_id].name);
+				removeFile(inodes[i].name);
 			}
 		}
 	}
