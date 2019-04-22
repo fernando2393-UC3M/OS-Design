@@ -97,7 +97,7 @@ int mkFS(long deviceSize)
 
 	// total blocks minus those reserved (boot, superblock) and maps and inodes
 	int dataBlocks = totalBlocks - superblocks - inodeMapBlocks - dataMapBlocks - inodeBlocks;
-i
+	
 	if (dataBlocks < 0) {
 		fprintf(stderr, "Error in mkFS: not enough space available. Try with a bigger size image!\n");
 		return -1;
