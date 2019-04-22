@@ -42,7 +42,7 @@ int countNumberEntries (int inode_id){
  * @return  char * with the next directory from root.
  */
 char * getFather(char * path) {
-	
+
 	char * directories = strdup(path);
 	char * father = dirname(directories);
 
@@ -216,7 +216,7 @@ int createFile(char *path)
 {
 	if (path == NULL)
 	{
-		fprintf(stderr, "Error in createFile\n");
+		fprintf(stderr, "Error in createFile: no file provided\n");
 		return -2;
 	}
 
@@ -232,6 +232,27 @@ int createFile(char *path)
 
 	inode_id = ialloc(); // Returns id of available inode
 
+	int father_inode_id = -1;
+	char * father = getFather(path);
+
+	/* Check if path includes a directory */
+
+	if (strcmp(father, "/") != 0) {
+
+			father_inode_id = namei(father);
+
+			if (father_inode_id < 0)
+			{
+				fprintf(stderr, "Error in createFile: directory does not exist\n");
+				return -2;
+			}
+
+			if (countNumberEntries(father_inode_id) >= MAX_ENTRIES) {
+				fprintf(stderr, "Error in createFile: directory is full\n");
+				return -2;
+			}
+	}
+
 	if (inode_id < 0)
 	{
 		fprintf(stderr, "Error in createFile: no inodes available\n");
@@ -246,30 +267,7 @@ int createFile(char *path)
 		return -2;
 	}
 
-	/* Check if path includes a directory */
-
-	if (strcmp(getFather(path), "/") != 0) {
-
-			int father_inode_id = namei(getFather(path));
-
-			if (father_inode_id < 0)
-			{
-				fprintf(stderr, "Error in createFile: directory does not exist\n");
-				return -2;
-			}
-
-			if (countNumberEntries(father_inode_id) == MAX_ENTRIES) {
-				fprintf(stderr, "Error in createFile: directory is full\n");
-				return -2;
-			}
-
-			inodes[inode_id].father = father_inode_id; // Inode_id of the father inode
-	}
-
-	else {
-		inodes[inode_id].father = -1; // Inode_id of root
-	}
-
+	inodes[inode_id].father = father_inode_id; // Inode_id of the father inode
 	inodes[inode_id].type = TYPE_FILE; // Inode points to a file
 	strcpy(inodes[inode_id].name, path);
 	inodes[inode_id].dataBlockPos = b_id;
@@ -288,7 +286,7 @@ int removeFile(char *path)
 {
 
 	if (path == NULL) {
-        fprintf(stderr, "Error in removeFile\n");
+        fprintf(stderr, "Error in removeFile: no file provided\n");
         return -1;
 	}
 
@@ -309,9 +307,17 @@ int removeFile(char *path)
 		return -2;
 	}
 
-	bfree(inodes[inode_id].dataBlockPos); // Free data block
+	if (bfree(inodes[inode_id].dataBlockPos) < 0) { // Free data block
+		fprintf(stderr, "Error in removeFile: bfree operation could not be completed\n");
+		return -2;
+	}
+
 	memset(&(inodes[inode_id]), 0, sizeof(inode_t));
-	ifree(inode_id);
+
+	if (ifree(inode_id) < 0) { // Free data block
+		fprintf(stderr, "Error in removeFile: ifree operation could not be completed\n");
+		return -2;
+	}
 
 	return 0;
 }
@@ -324,7 +330,7 @@ int removeFile(char *path)
 int openFile(char *path){
 
 	if (path == NULL) {
-        fprintf(stderr, "Error in openFile\n");
+        fprintf(stderr, "Error in openFile: no file provided\n");
         return -1;
 	}
 
@@ -638,7 +644,7 @@ int rmDir(char *path)
 	// Check all inodes until root --> If path is father --> remove
 
 	for (int i = 0; i < MAX_FILES; i++) { // Iterate over all inodes
-		
+
 		int aux_inode_id = i;
 
 		while (aux_inode_id != -1) {
@@ -654,9 +660,17 @@ int rmDir(char *path)
 
 	// Once all inodes have been checked remove directory
 
-	bfree(inodes[inode_id].dataBlockPos); // Free data block
+	if (bfree(inodes[inode_id].dataBlockPos) < 0) { // Free data block
+		fprintf(stderr, "Error in rmDir: bfree operation could not be completed\n");
+		return -2;
+	}
+
 	memset(&(inodes[inode_id]), 0, sizeof(inode_t));
-	ifree(inode_id);
+
+	if (ifree(inode_id) < 0) { // Free data block
+		fprintf(stderr, "Error in rmDir: ifree operation could not be completed\n");
+		return -2;
+	}
 
 	return 0;
 }
@@ -697,7 +711,7 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 			strcpy(namesDir[counter], basename(inodes[i].name));	// Get name of element and copy to first free position
 			counter++;
 		}
-	}	
+	}
 
 	return countNumberEntries(inode_id);
 }

@@ -15,8 +15,8 @@
 #define MAX_FILE_NAME 32 /* Longest inode name */
 #define MAX_PATH_LEN_FOLDER 99 /* Longest folder path name */
 #define MAX_PATH_LEN_FILE 132 /* Longest file path name */
-#define TYPE_FILE 0 /* File type inode */
-#define TYPE_FOLDER 1 /* Folder type inode */
+#define TYPE_FILE 1 /* File type inode */
+#define TYPE_FOLDER 2 /* Folder type inode */
 
 #define bitmap_getbit(bitmap_, i_) (bitmap_[i_ >> 3] & (1 << (i_ & 0x07)))
 static inline void bitmap_setbit(char *bitmap_, int i_, int val_) {
