@@ -93,11 +93,11 @@ int mkFS(long deviceSize)
 	int inodeBlocks = ceilOfDivision(sizeof(inode_t)*MAX_FILES, BLOCK_SIZE);
 	int inodeMapBlocks = ceilOfDivision(inodeBlocks, BLOCK_SIZE);
 
-	int dataMapBlocks = ceilOfDivision((totalBlocks-inodeBlocks-inodeMapBlocks), BLOCK_SIZE); // Blocks represented per byte
+	int dataMapBlocks = ceilOfDivision((totalBlocks-superblocks-inodeBlocks-inodeMapBlocks), BLOCK_SIZE); // Blocks represented per byte
 
 	// total blocks minus those reserved (boot, superblock) and maps and inodes
 	int dataBlocks = totalBlocks - superblocks - inodeMapBlocks - dataMapBlocks - inodeBlocks;
-
+i
 	if (dataBlocks < 0) {
 		fprintf(stderr, "Error in mkFS: not enough space available. Try with a bigger size image!\n");
 		return -1;
