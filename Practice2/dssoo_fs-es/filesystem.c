@@ -247,6 +247,12 @@ int createFile(char *path)
 				return -2;
 			}
 
+			if (inodes[father_inode_id].type != TYPE_FOLDER)
+			{
+				fprintf(stderr, "Error createFile: directory does not exist\n");
+				return -2;
+			}
+
 			if (countNumberEntries(father_inode_id) >= MAX_ENTRIES) {
 				fprintf(stderr, "Error in createFile: directory is full\n");
 				return -2;
@@ -553,8 +559,8 @@ int mkDir(char *path)
 {
 
 	if (path == NULL) {
-        fprintf(stderr, "Error in mkDir\n");
-        return -1;
+        fprintf(stderr, "Error in mkDir: no directory provided\n");
+        return -2;
 	}
 
 	int b_id;
@@ -567,6 +573,32 @@ int mkDir(char *path)
 		return -1;
 	}
 
+	int father_inode_id = -1;
+	char * father = getFather(path);
+
+	/* Check if path includes a directory */
+	if (strcmp(father, "/") != 0) {
+
+			father_inode_id = namei(father);
+
+			if (father_inode_id < 0)
+			{
+				fprintf(stderr, "Error in mkDir: directory does not exist\n");
+				return -2;
+			}
+
+			if (inodes[father_inode_id].type != TYPE_FOLDER)
+			{
+				fprintf(stderr, "Error createFile: directory does not exist\n");
+				return -2;
+			}
+
+			if (countNumberEntries(father_inode_id) == MAX_ENTRIES) {
+				fprintf(stderr, "Error in mkDir: directory is full\n");
+				return -2;
+			}
+	}
+
 	inode_id = ialloc(); // Returns id of available inode
 
 	if (inode_id < 0)
@@ -575,42 +607,19 @@ int mkDir(char *path)
 		return -2;
 	}
 
-	b_id = alloc();
+	// b_id = alloc();
+	//
+	// if (b_id < 0)
+	// {
+	// 	fprintf(stderr, "Error in createFile: no data blocks available\n");
+	// 	return -2;
+	// }
 
-	if (b_id < 0)
-	{
-		fprintf(stderr, "Error in createFile: no data blocks available\n");
-		return -2;
-	}
-
-	/* Check if path includes a directory */
-
-	if (strcmp(getFather(path), "/") != 0) {
-
-			int father_inode_id = namei(getFather(path));
-
-			if (father_inode_id < 0)
-			{
-				fprintf(stderr, "Error in mkDir: directory does not exist\n");
-				return -2;
-			}
-
-			if (countNumberEntries(father_inode_id) == MAX_ENTRIES) {
-				fprintf(stderr, "Error in mkDir: directory is full\n");
-				return -2;
-			}
-
-			inodes[inode_id].father = father_inode_id; // Inode_id of the father inode
-	}
-
-	else {
-		inodes[inode_id].father = -1; // Inode_id of root
-	}
-
+	inodes[inode_id].father = father_inode_id; // Inode_id of the father inode
 	inodes[inode_id].type = TYPE_FOLDER; // Inode points to a folder
 	strcpy(inodes[inode_id].name, path);
-	inodes[inode_id].dataBlockPos = b_id;
-	inodes[inode_id].size = MAX_FILE_SIZE;
+	// inodes[inode_id].dataBlockPos = b_id;
+	// inodes[inode_id].size = MAX_FILE_SIZE;
 
 	return 0;
 }
@@ -623,8 +632,8 @@ int rmDir(char *path)
 {
 
 	if (path == NULL) {
-        fprintf(stderr, "Error in rmDir\n");
-        return -2;
+        fprintf(stderr, "Error in rmDir: no directory provided\n");
+        return -1;
 	}
 
 	int inode_id = namei(path);
@@ -642,20 +651,16 @@ int rmDir(char *path)
 	/* Remove the directory and all its content */
 
 	// Check all inodes until root --> If path is father --> remove
+	int i;
+	for (i = 0; i < sblock.numInodes; i++) { // Iterate over all inodes
 
-	for (int i = 0; i < MAX_FILES; i++) { // Iterate over all inodes
-
-		int aux_inode_id = i;
-
-		while (aux_inode_id != -1) {
-			if (inodes[aux_inode_id].father == inode_id) { // If father is directory to remove --> remove file
+		if (inodes[aux_inode_id].father == inode_id) { // If father is directory to remove --> remove file
+			if (inodes[aux_inode_id].type == TYPE_FOLDER){
+				rmDir(inodes[aux_inode_id].name);
+			} else {
 				removeFile(inodes[aux_inode_id].name);
 			}
-			else {
-				aux_inode_id = inodes[aux_inode_id].father; // Else, go one level up in path
-			}
 		}
-
 	}
 
 	// Once all inodes have been checked remove directory
@@ -683,8 +688,8 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 {
 
 	if (path == NULL) {
-        fprintf(stderr, "Error in lsDir\n");
-        return -2;
+        fprintf(stderr, "Error in lsDir: no directory provided\n");
+        return -1;
 	}
 
 	int inode_id = namei(path);
@@ -705,7 +710,7 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 
 	int counter = 0;
 
-	for (int i = 0; i < MAX_FILES; i++) {
+	for (int i = 0; i < sblock.numInodes; i++) {
 		if (inodes[i].father == inode_id) {
 			inodesDir[counter] = i;									// Add to the first free position inode
 			strcpy(namesDir[counter], basename(inodes[i].name));	// Get name of element and copy to first free position
