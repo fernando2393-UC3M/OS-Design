@@ -97,7 +97,7 @@ int mkFS(long deviceSize)
 
 	// total blocks minus those reserved (boot, superblock) and maps and inodes
 	int dataBlocks = totalBlocks - superblocks - inodeMapBlocks - dataMapBlocks - inodeBlocks;
-	
+
 	if (dataBlocks < 0) {
 		fprintf(stderr, "Error in mkFS: not enough space available. Try with a bigger size image!\n");
 		return -1;
@@ -239,12 +239,10 @@ int createFile(char *path)
 		c++;
 	}
 
-	if (slash > 4) {
-		fprintf(stderr, "Error in createFile: too many directories in path\n");
+	if (slash > MAX_FOLDER_LEVEL+1) {
+		fprintf(stderr, "Error in createFile: deepest folder level reached\n");
         return -2;
 	}
-
-	int b_id;
 
 	int inode_id = namei(path);
 
@@ -289,7 +287,7 @@ int createFile(char *path)
 		return -2;
 	}
 
-	b_id = alloc();
+	int b_id = alloc();
 
 	if (b_id < 0)
 	{
@@ -304,6 +302,12 @@ int createFile(char *path)
 	inodes[inode_id].size = MAX_FILE_SIZE;
 	inodes_x[inode_id].position = 0;
 	inodes_x[inode_id].opened = 0;
+
+	/* Call syncFS() to write data in memory to the disk image */
+    if (syncFS() < 0) {
+        fprintf(stderr, "Error in createFile: failed to write data to the disk image\n");
+        return -2;
+    }
 
 	return 0;
 }
@@ -348,6 +352,12 @@ int removeFile(char *path)
 		fprintf(stderr, "Error in removeFile: ifree operation could not be completed\n");
 		return -2;
 	}
+
+	/* Call syncFS() to write data in memory to the disk image */
+    if (syncFS() < 0) {
+        fprintf(stderr, "Error in removeFile: failed to write data to the disk image\n");
+        return -2;
+    }
 
 	return 0;
 }
@@ -606,12 +616,10 @@ int mkDir(char *path)
 		c++;
 	}
 
-	if (slash > 4) {
-		fprintf(stderr, "Error in mkDir: too many directories in path\n");
+	if (slash > MAX_FOLDER_LEVEL) {
+		fprintf(stderr, "Error in mkDir: deepest folder level reached\n");
         return -2;
 	}
-
-	// int b_id;
 
 	int inode_id = namei(path);
 
@@ -655,11 +663,11 @@ int mkDir(char *path)
 		return -2;
 	}
 
-	// b_id = alloc();
+	// int b_id = alloc();
 	//
 	// if (b_id < 0)
 	// {
-	// 	fprintf(stderr, "Error in createFile: no data blocks available\n");
+	// 	fprintf(stderr, "Error in mkDir: no data blocks available\n");
 	// 	return -2;
 	// }
 
@@ -668,6 +676,12 @@ int mkDir(char *path)
 	strcpy(inodes[inode_id].name, path);
 	// inodes[inode_id].dataBlockPos = b_id;
 	// inodes[inode_id].size = MAX_FILE_SIZE;
+
+	/* Call syncFS() to write data in memory to the disk image */
+    if (syncFS() < 0) {
+        fprintf(stderr, "Error in mkDir: failed to write data to the disk image\n");
+        return -2;
+    }
 
 	return 0;
 }
@@ -724,6 +738,12 @@ int rmDir(char *path)
 		fprintf(stderr, "Error in rmDir: ifree operation could not be completed\n");
 		return -2;
 	}
+
+	/* Call syncFS() to write data in memory to the disk image */
+    if (syncFS() < 0) {
+        fprintf(stderr, "Error in rmDir: failed to write data to the disk image\n");
+        return -2;
+    }
 
 	return 0;
 }

@@ -12,9 +12,9 @@
 
 #define MAX_FILES 40 /* Maxium number of files */
 #define MAX_ENTRIES 10 /* Maxium number of entries per inode */
-#define MAX_FILE_NAME 32 /* Longest inode name */
-#define MAX_PATH_LEN_FOLDER 99 /* Longest folder path name */
-#define MAX_PATH_LEN_FILE 132 /* Longest file path name */
+#define MAX_FILE_NAME 32 /* Longest file or directory name */
+#define MAX_PATH_LEN_FILE 132 /* Longest route name */
+#define MAX_FOLDER_LEVEL 3 /* Deepest folder level */
 #define TYPE_FILE 1 /* File type inode */
 #define TYPE_FOLDER 2 /* Folder type inode */
 
