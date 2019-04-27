@@ -786,7 +786,7 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 		}
 	}
 
-	return countNumberEntries(inode_id);
+	return counter;
 }
 
 
