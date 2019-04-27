@@ -221,7 +221,7 @@ int createFile(char *path)
 	}
 
 	if (strlen(basename(path)) > MAX_FILE_NAME) {
-		fprintf(stderr, "Error in createFile: directory name too big\n");
+		fprintf(stderr, "Error in createFile: file name too big\n");
         return -2;
 	}
 
@@ -271,7 +271,7 @@ int createFile(char *path)
 
 			if (inodes[father_inode_id].type != TYPE_FOLDER)
 			{
-				fprintf(stderr, "Error createFile: directory does not exist\n");
+				fprintf(stderr, "Error createFile: parent is not a directory\n");
 				return -2;
 			}
 
@@ -411,6 +411,18 @@ int closeFile(int fileDescriptor)
         fprintf(stderr, "Error in closeFile: wrong file descriptor\n");
         return -1;
     }
+
+	if (inodes[fileDescriptor].type != TYPE_FILE)
+	{
+		fprintf(stderr, "Error closeFile: not a file\n");
+		return -1;
+	}
+
+	if (inodes_x[fileDescriptor].opened == 0)
+	{
+		fprintf(stderr, "Error closeFile: file is not opened!\n");
+		return -1;
+	}
 
     inodes_x[fileDescriptor].position = 0; /* Set seek descriptor to begin */
     inodes_x[fileDescriptor].opened = 0;  /* Set file state to closed */
@@ -645,7 +657,7 @@ int mkDir(char *path)
 
 			if (inodes[father_inode_id].type != TYPE_FOLDER)
 			{
-				fprintf(stderr, "Error createFile: directory does not exist\n");
+				fprintf(stderr, "Error mkDir: parent is not a directory\n");
 				return -2;
 			}
 
