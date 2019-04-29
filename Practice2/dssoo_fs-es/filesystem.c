@@ -252,13 +252,10 @@ int createFile(char *path)
 		return -1;
 	}
 
-	inode_id = ialloc(); // Returns id of available inode
-
 	int father_inode_id = -1;
 	char * father = getFather(path);
 
 	/* Check if path includes a directory */
-
 	if (strcmp(father, "/") != 0) {
 
 			father_inode_id = namei(father);
@@ -280,6 +277,8 @@ int createFile(char *path)
 				return -2;
 			}
 	}
+
+	inode_id = ialloc(); // Returns id of available inode
 
 	if (inode_id < 0)
 	{
@@ -481,9 +480,9 @@ int readFile(int fileDescriptor, void *buffer, int numBytes)
 
 	memmove(buffer, b+inodes_x[fileDescriptor].position, numBytes);
 
-	inodes_x[fileDescriptor].position += numBytes;
+	inodes_x[fileDescriptor].position += strlen(buffer);
 
-	return numBytes;
+	return strlen(buffer);
 }
 
 /*
@@ -509,6 +508,10 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 
 	char b[BLOCK_SIZE] ;
 	int b_id;
+
+	if (strlen(buffer) < numBytes) {
+		numBytes = strlen(buffer);
+	}
 
 	if (inodes_x[fileDescriptor].position + numBytes > inodes[fileDescriptor].size) {
 		numBytes = inodes[fileDescriptor].size - inodes_x[fileDescriptor].position;
