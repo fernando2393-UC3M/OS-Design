@@ -26,6 +26,7 @@ static inline void bitmap_setbit(char *bitmap_, int i_, int val_) {
     bitmap_[(i_ >> 3)] &= ~(1 << (i_ & 0x07));
 }
 
+/* Superblock structure */
 typedef struct {
 
   unsigned int magicNumber;                             /* Superblock Magic Number */
@@ -40,12 +41,13 @@ typedef struct {
 
 } superblock_t;
 
+/* inode structure */
 typedef struct {
   char name [MAX_PATH_LEN_FILE + 1]; // Due to the final character \0
   unsigned int dataBlockPos; // Position of the datablock
-  unsigned int type;
-  unsigned int size;
-  unsigned int father;
+  unsigned int type; // Type of inode
+  unsigned int size; // Size of inode
+  unsigned int father; // inode of father inode
 } inode_t;
 
 /* Metadata of the FS */
@@ -57,6 +59,7 @@ inode_t inodes [MAX_FILES];
 char *i_map;  /* Map of used iNodes */
 char *b_map;  /* Map of used dataBlocks */
 
+/* Auxiliary structure for inode */
 struct {
   int position; /* Position of the file seek pointer */
   int opened; /* 0 if file is closed, 1 if opened */

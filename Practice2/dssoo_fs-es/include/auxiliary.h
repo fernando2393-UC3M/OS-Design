@@ -19,8 +19,8 @@ int ceilOfDivision (long a, long b);
 int countNumberEntries (int inode_id);
 
 /*
- * @brief   Gets the father route
- * @return  char * with the next directory from root.
+ * @brief   Gets the father route for a given path
+ * @return  char * with the father of the inpur path
  */
 char * getFather(char * path);
 

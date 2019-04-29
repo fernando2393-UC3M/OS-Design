@@ -29,6 +29,7 @@ int ceilOfDivision (long a, long b) {
 int countNumberEntries (int inode_id){
 	int i, count = 0;
 
+	/* We check the number of inodes that have as father the input inode */
     for (i = 0; i < sblock.numInodes; i++) {
         if (inodes[i].father == inode_id) {
             count ++;
@@ -38,8 +39,8 @@ int countNumberEntries (int inode_id){
 }
 
 /*
- * @brief   Gets the father route
- * @return  char * with the next directory from root.
+ * @brief   Gets the father route for a given path
+ * @return  char * with the father of the inpur path
  */
 char * getFather(char * path) {
 
@@ -77,6 +78,7 @@ int mkFS(long deviceSize)
     unsigned long diskSize = (unsigned long) lseek(fd, 0, SEEK_END);
     close(fd);
 
+	/* Check if the disk size is larger than the input device size */
     if (diskSize < deviceSize) {
         fprintf(stderr, "Error in mkFS: disk is too small\n");
         return -1;
@@ -86,10 +88,7 @@ int mkFS(long deviceSize)
 	int superblocks = 1;
 
 	/* Blocks calculation */
-
 	int totalBlocks = ceilOfDivision(deviceSize, BLOCK_SIZE); // Maximum number of blocks --> 5120 --> int (already rounded if necessary)
-
-	/* Preguntar el por que de esto */
 	int inodeBlocks = ceilOfDivision(sizeof(inode_t)*MAX_FILES, BLOCK_SIZE);
 	int inodeMapBlocks = ceilOfDivision(inodeBlocks, BLOCK_SIZE);
 
@@ -104,7 +103,6 @@ int mkFS(long deviceSize)
 	}
 
 	/* Superblock initialization */
-
 	sblock.magicNumber = MAGIC_NUMBER; // Magic number --> 0x000D5500
 	sblock.numINodeMapBlocks = inodeMapBlocks; // Number of blocks of inode map
 	sblock.numDataMapBlocks = dataMapBlocks; // Number of blocks of data map
@@ -214,6 +212,7 @@ int unmountFS(void)
  */
 int createFile(char *path)
 {
+	/* Validate input path */
 	if (path == NULL)
 	{
 		fprintf(stderr, "Error in createFile: no file provided\n");
@@ -225,6 +224,7 @@ int createFile(char *path)
         return -2;
 	}
 
+	/* Count number of slash ('/'), to check deep level */
 	int c = 0;
 	int slash = 0;
 
@@ -244,6 +244,7 @@ int createFile(char *path)
         return -2;
 	}
 
+	/* Check if inode already exists */
 	int inode_id = namei(path);
 
 	if (inode_id >= 0)
@@ -278,6 +279,7 @@ int createFile(char *path)
 			}
 	}
 
+	// Allocate space for file
 	inode_id = ialloc(); // Returns id of available inode
 
 	if (inode_id < 0)
@@ -294,6 +296,7 @@ int createFile(char *path)
 		return -2;
 	}
 
+	// Fill inode with corresponding data
 	inodes[inode_id].father = father_inode_id; // Inode_id of the father inode
 	inodes[inode_id].type = TYPE_FILE; // Inode points to a file
 	strcpy(inodes[inode_id].name, path);
@@ -318,11 +321,13 @@ int createFile(char *path)
 int removeFile(char *path)
 {
 
+	/* Validate input path */
 	if (path == NULL) {
         fprintf(stderr, "Error in removeFile: no file provided\n");
         return -1;
 	}
 
+	/* Check if inode exists */
 	int inode_id = namei(path);
 
 	if (inode_id < 0){
@@ -330,11 +335,13 @@ int removeFile(char *path)
         return -1;
 	}
 
+	/* Check if path is a file */
 	if (inodes[inode_id].type != TYPE_FILE) {
 		fprintf(stderr, "Error in removeFile: not a file\n");
 		return -2;
 	}
 
+	/* Check if file is opened */
 	if (inodes_x[inode_id].opened != 0) {
 		fprintf(stderr, "Error in removeFile: file is opened!\n");
 		return -2;
@@ -345,6 +352,7 @@ int removeFile(char *path)
 		return -2;
 	}
 
+	/* Free data */
 	memset(&(inodes[inode_id]), 0, sizeof(inode_t));
 
 	if (ifree(inode_id) < 0) { // Free data block
@@ -368,11 +376,13 @@ int removeFile(char *path)
  */
 int openFile(char *path){
 
+	/* Validate input path */
 	if (path == NULL) {
         fprintf(stderr, "Error in openFile: no file provided\n");
         return -1;
 	}
 
+	/* Check if inode exists */
 	int inode_id = namei(path);
 
 	if (inode_id < 0)
@@ -381,18 +391,21 @@ int openFile(char *path){
 		return -1;
 	}
 
+	/* Check if inode is a file */
 	if (inodes[inode_id].type != TYPE_FILE)
 	{
 		fprintf(stderr, "Error openFile: not a file\n");
 		return -2;
 	}
 
+	/* Check if file is opened */
 	if (inodes_x[inode_id].opened != 0)
 	{
 		fprintf(stderr, "Error openFile: file is already opened!\n");
 		return -2;
 	}
 
+	/* Open it */
 	inodes_x[inode_id].position = 0;
 	inodes_x[inode_id].opened = 1;
 
@@ -406,23 +419,27 @@ int openFile(char *path){
  */
 int closeFile(int fileDescriptor)
 {
+	/* Validate file descriptor */
 	if (fileDescriptor >= sblock.numInodes || fileDescriptor < 0) {
         fprintf(stderr, "Error in closeFile: wrong file descriptor\n");
         return -1;
     }
 
+	/* Check if inode is a file */
 	if (inodes[fileDescriptor].type != TYPE_FILE)
 	{
 		fprintf(stderr, "Error closeFile: not a file\n");
 		return -1;
 	}
 
+	/* Check if file is opened */
 	if (inodes_x[fileDescriptor].opened == 0)
 	{
 		fprintf(stderr, "Error closeFile: file is not opened!\n");
 		return -1;
 	}
 
+	/* Close file */
     inodes_x[fileDescriptor].position = 0; /* Set seek descriptor to begin */
     inodes_x[fileDescriptor].opened = 0;  /* Set file state to closed */
 
@@ -435,16 +452,19 @@ int closeFile(int fileDescriptor)
  */
 int readFile(int fileDescriptor, void *buffer, int numBytes)
 {
+	/* Validate file descriptor */
 	if (fileDescriptor >= sblock.numInodes || fileDescriptor < 0) {
 		fprintf(stderr, "Error in readFile: wrong file descriptor\n");
 		return -1;
 	}
 
+	/* Check if inode is a file */
 	if (inodes[fileDescriptor].type != TYPE_FILE) {
       fprintf(stderr, "Error in readFile: not a file\n");
       return -1;
     }
 
+	/* Check if file is opened */
 	if (inodes_x[fileDescriptor].opened == 0) {
       fprintf(stderr, "Error in readFile: file not opened\n");
       return -1;
@@ -453,6 +473,7 @@ int readFile(int fileDescriptor, void *buffer, int numBytes)
 	char b[BLOCK_SIZE] ;
 	int b_id;
 
+	/* If number of bytes to read surpasses the file size, read until EOF */
 	if (inodes_x[fileDescriptor].position + numBytes > inodes[fileDescriptor].size) {
 		numBytes = inodes[fileDescriptor].size - inodes_x[fileDescriptor].position;
 	}
@@ -466,6 +487,7 @@ int readFile(int fileDescriptor, void *buffer, int numBytes)
         return 0;
     }
 
+	/* Get the number of block of file */
 	b_id = bmap(fileDescriptor, inodes_x[fileDescriptor].position);
 
 	if (b_id < 0) {
@@ -473,11 +495,13 @@ int readFile(int fileDescriptor, void *buffer, int numBytes)
 		return -1;
 	}
 
+	/* Read block */
 	if (bread(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b) < 0) {
 		fprintf(stderr, "Error in readFile: can't read data block\n");
 		return -1;
 	}
 
+	/* Write to buffer and increase file pointer */
 	memmove(buffer, b+inodes_x[fileDescriptor].position, numBytes);
 
 	inodes_x[fileDescriptor].position += strlen(buffer);
@@ -491,16 +515,19 @@ int readFile(int fileDescriptor, void *buffer, int numBytes)
  */
 int writeFile(int fileDescriptor, void *buffer, int numBytes)
 {
+	/* Validate file descriptor */
 	if (fileDescriptor >= sblock.numInodes || fileDescriptor < 0) {
 		fprintf(stderr, "Error in writeFile: wrong file descriptor\n");
 		return -1;
 	}
 
+	/* Check if inode is a file */
 	if (inodes[fileDescriptor].type != TYPE_FILE) {
       fprintf(stderr, "Error in writeFile: not a file\n");
       return -1;
     }
 
+	/* Check if file is opened */
 	if (inodes_x[fileDescriptor].opened == 0) {
       fprintf(stderr, "Error in writeFile: file not opened\n");
       return -1;
@@ -509,10 +536,12 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 	char b[BLOCK_SIZE] ;
 	int b_id;
 
+	/* If len of buffer is less than numBytes, decrease this number to len of buffer */
 	if (strlen(buffer) < numBytes) {
 		numBytes = strlen(buffer);
 	}
 
+	/* If number of bytes to read surpasses the file size, write until EOF */
 	if (inodes_x[fileDescriptor].position + numBytes > inodes[fileDescriptor].size) {
 		numBytes = inodes[fileDescriptor].size - inodes_x[fileDescriptor].position;
 	}
@@ -521,12 +550,12 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 		return -1;
 	}
 
-	/* In this case, the seek pointer is located at EOF, so no bytes
-     * can be read */
+	/* In this case, the seek pointer is located at EOF, so no bytes can be read */
     if (numBytes == 0) {
         return 0;
     }
 
+	/* Get the number of block of file */
 	b_id = bmap(fileDescriptor, inodes_x[fileDescriptor].position);
 
 	if (b_id < 0) {
@@ -534,13 +563,16 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
 		return -1;
 	}
 
+	/* Read block */
 	if (bread(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b) < 0) {
 		fprintf(stderr, "Error in writeFile: can't read data block\n");
 		return -1;
 	}
 
+	/* Write into buffer */
 	memmove(b+inodes_x[fileDescriptor].position, buffer, numBytes);
 
+	/* Write block and increase file pointer*/
 	if (bwrite(DEVICE_IMAGE, sblock.firstDataBlock+b_id, b) < 0) {
 		fprintf(stderr, "Error in writeFile: can't write data block\n");
 		return -1;
@@ -557,32 +589,37 @@ int writeFile(int fileDescriptor, void *buffer, int numBytes)
  */
 int lseekFile(int fileDescriptor, long offset, int whence)
 {
-
+	/* Validate file descriptor */
 	if (fileDescriptor >= sblock.numInodes || fileDescriptor < 0) {
 		fprintf(stderr, "Error in lseekFile: wrong file descriptor\n");
 		return -1;
 	}
 
+	/* Check if inode is a file */
 	if (inodes[fileDescriptor].type != TYPE_FILE) {
       fprintf(stderr, "Error in lseekFile: not a file\n");
       return -1;
     }
 
+	/* Check if file is opened */
 	if (inodes_x[fileDescriptor].opened == 0) {
       fprintf(stderr, "Error in lseekFile: file not opened\n");
       return -1;
     }
 
+	/* Whence begin -> file pointer to beginning */
 	if (whence == FS_SEEK_BEGIN){
 		inodes_x[fileDescriptor].position = 0;
 		return 0;
 	}
 
+	/* Whence end -> file pointer to end */
 	if (whence == FS_SEEK_END) {
 		inodes_x[fileDescriptor].position = inodes[fileDescriptor].size;
 		return 0;
 	}
 
+	/* Whence cur -> add offset */
 	if (whence == FS_SEEK_CUR){
 		if (inodes_x[fileDescriptor].position + offset > inodes[fileDescriptor].size) {
 			fprintf(stderr, "Error in lseekFile: Te has pasado por alante\n");
@@ -596,6 +633,7 @@ int lseekFile(int fileDescriptor, long offset, int whence)
 		return 0;
 	}
 
+	/* Other whence -> error */
 	fprintf(stderr, "Error in lseekFile: did not provide a valid value for whence\n");
 	return -1;
 }
@@ -607,6 +645,7 @@ int lseekFile(int fileDescriptor, long offset, int whence)
 int mkDir(char *path)
 {
 
+	/* Validate input path */
 	if (path == NULL) {
         fprintf(stderr, "Error in mkDir: no directory provided\n");
         return -2;
@@ -617,6 +656,7 @@ int mkDir(char *path)
         return -2;
 	}
 
+	/* Count number of slash ('/'), to check deep level */
 	int c = 0;
 	int slash = 0;
 
@@ -636,6 +676,7 @@ int mkDir(char *path)
         return -2;
 	}
 
+	/* Check folder existance */
 	int inode_id = namei(path);
 
 	if (inode_id >= 0)
@@ -670,6 +711,7 @@ int mkDir(char *path)
 			}
 	}
 
+	/* Allocate space: inode allocation but no data block is needed */
 	inode_id = ialloc(); // Returns id of available inode
 
 	if (inode_id < 0)
@@ -678,19 +720,10 @@ int mkDir(char *path)
 		return -2;
 	}
 
-	// int b_id = alloc();
-	//
-	// if (b_id < 0)
-	// {
-	// 	fprintf(stderr, "Error in mkDir: no data blocks available\n");
-	// 	return -2;
-	// }
-
+	/* Fill inode with its corresponding data */
 	inodes[inode_id].father = father_inode_id; // Inode_id of the father inode
 	inodes[inode_id].type = TYPE_FOLDER; // Inode points to a folder
 	strcpy(inodes[inode_id].name, path);
-	// inodes[inode_id].dataBlockPos = b_id;
-	// inodes[inode_id].size = MAX_FILE_SIZE;
 
 	/* Call syncFS() to write data in memory to the disk image */
     if (syncFS() < 0) {
@@ -708,11 +741,13 @@ int mkDir(char *path)
 int rmDir(char *path)
 {
 
+	/* Validate input path */
 	if (path == NULL) {
         fprintf(stderr, "Error in rmDir: no directory provided\n");
         return -1;
 	}
 
+	/* Check inode existance */
 	int inode_id = namei(path);
 
 	if (inode_id < 0){
@@ -720,18 +755,17 @@ int rmDir(char *path)
         return -1;
 	}
 
+	/* Check if inode is a folder */
 	if (inodes[inode_id].type != TYPE_FOLDER) {
 		fprintf(stderr, "Error in rmDir: not a directory\n");
 		return -2;
 	}
 
 	/* Remove the directory and all its content */
-
-	// Check all inodes until root --> If path is father --> remove
 	int i;
 	for (i = 0; i < sblock.numInodes; i++) { // Iterate over all inodes
 
-		if (inodes[i].father == inode_id) { // If father is directory to remove --> remove file
+		if (inodes[i].father == inode_id) { // If father is directory to remove --> remove inode
 			if (inodes[i].type == TYPE_FOLDER){
 				rmDir(inodes[i].name);
 			} else {
@@ -741,7 +775,6 @@ int rmDir(char *path)
 	}
 
 	// Once all inodes have been checked remove directory
-
 	if (bfree(inodes[inode_id].dataBlockPos) < 0) { // Free data block
 		fprintf(stderr, "Error in rmDir: bfree operation could not be completed\n");
 		return -2;
@@ -770,11 +803,13 @@ int rmDir(char *path)
 int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 {
 
+	/* Validate input path */
 	if (path == NULL) {
         fprintf(stderr, "Error in lsDir: no directory provided\n");
         return -1;
 	}
 
+	/* Check inode existance */
 	int inode_id = namei(path);
 
 	if (inode_id < 0){
@@ -782,6 +817,7 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
         return -1;
 	}
 
+	/* Check if inode is a folder */
 	if (inodes[inode_id].type != TYPE_FOLDER) {
 		fprintf(stderr, "Error in lsDir: not a directory\n");
 		return -2;
@@ -793,6 +829,7 @@ int lsDir(char *path, int inodesDir[10], char namesDir[10][33])
 
 	int counter = 0;
 
+	/* Check all inodes and note down the children of or inode */
 	for (int i = 0; i < sblock.numInodes; i++) {
 		if (inodes[i].father == inode_id) {
 			inodesDir[counter] = i;									// Add to the first free position inode
